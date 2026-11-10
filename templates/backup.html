@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Backup — doc-harbor{% endblock %}
+{% block extra_head %}
+<style>
+  .bk-grid { display: flex; flex-direction: column; gap: 1.25rem; }
+  .bk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+  .bk-card h2 { font-size: 1.1rem; margin-bottom: 0.35rem; }
+  .bk-card > p.lead { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.1rem; }
+  .bk-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.9rem; }
+  .bk-part { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .bk-part h3 { font-size: 0.98rem; }
+  .bk-part p { font-size: 0.83rem; color: var(--text-muted); flex-grow: 1; }
+  .bk-part .btn { justify-content: center; }
+  .bk-note { font-size: 0.83rem; padding: 0.7rem 0.9rem; border-radius: 6px; background: var(--active-bg); border: 1px solid var(--border); margin-bottom: 1rem; }
+  .bk-warn { background: #fff8c5; border-color: rgba(154,103,0,0.25); color: #6b4f00; }
+  html.dark .bk-warn { background: #2d2a12; color: #e3c86b; }
+  .bk-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.85rem; }
+  .bk-row label { font-size: 0.88rem; display: flex; gap: 0.4rem; align-items: center; cursor: pointer; }
+  .bk-modes { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1rem; }
+  input[type=file] { font-size: 0.88rem; color: var(--text); }
+  .bk-progress { display: none; margin-top: 0.75rem; }
+  .bk-bar { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .bk-bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+  .bk-status { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.4rem; }
+  .bk-result { display: none; margin-top: 1rem; font-size: 0.88rem; border-radius: 6px; padding: 0.8rem 1rem; }
+  .bk-result.ok { background: #dafbe1; color: #1a7f37; border: 1px solid rgba(26,127,55,0.2); }
+  .bk-result.err { background: #ffebe9; color: #cf222e; border: 1px solid rgba(207,34,46,0.2); }
+  html.dark .bk-result.ok { background: #12261e; color: #56d364; }
+  html.dark .bk-result.err { background: #2d1214; color: #ff7b72; }
+  .bk-result ul { margin: 0.4rem 0 0 1.2rem; }
+  .bk-result details { margin-top: 0.4rem; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  code { font-size: 0.85em; background: var(--bg); padding: 0.05rem 0.3rem; border-radius: 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="bk-grid">
+
+  <div class="bk-card">
+    <h2>💾 Exportera</h2>
+    <p class="lead">Ladda ner en komprimerad fil (.zip) för varje del. Filerna kan läsas in igen här eller i en annan doc-harbor-instans.</p>
+    <div class="bk-parts">
+      <div class="bk-part">
+        <h3>📁 Filer</h3>
+        {% if is_admin %}
+          <p>Din hemmapp <code>{{ home_rel }}</code> och alla mappar och filer i roten (utom <code>Users</code> och <code>Groups</code>). Versionshistorik och dolda filer ingår inte.</p>
+        {% else %}
+          <p>Alla filer och mappar i din hemmapp. Versionshistorik och dolda filer ingår inte. Gruppmappar ingår inte.</p>
+        {% endif %}
+        <a class="btn btn-primary" href="/api/backup/export/files">Exportera filer</a>
+      </div>
+      <div class="bk-part">
+        <h3>📝 Att-göra-listor</h3>
+        <p>Alla dina att-göra-listor.</p>
+        <a class="btn btn-primary" href="/api/backup/export/todo">Exportera att-göra</a>
+      </div>
+      <div class="bk-part">
+        <h3>📋 Kanban</h3>
+        <p>Alla dina Kanban-tavlor.</p>
+        <a class="btn btn-primary" href="/api/backup/export/kanban">Exportera Kanban</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="bk-card">
+    <h2>📥 Importera</h2>
+    <p class="lead">Läs in en exporterad .zip-fil. Vilken del det är (filer, att-göra eller Kanban) avgörs av filen.</p>
+    <div class="bk-note">
+      Allt du importerar hamnar under <strong>ditt eget konto</strong> (<code>{{ home_rel }}</code>), oavsett vem som exporterade det. Import kan aldrig skriva någon annanstans.
+    </div>
+    {% if can_write %}
+      <div class="bk-row">
+        <input type="file" id="imp-file" accept=".zip,application/zip">
+      </div>
+      <div class="bk-modes">
+        <label><input type="radio" name="imp-mode" value="rename" checked> Behåll båda: importerade filer med samma namn får ett nytt namn, t.ex. <code>rapport (import).md</code></label>
+        <label><input type="radio" name="imp-mode" value="overwrite"> Ersätt befintliga: den gamla versionen sparas i versionshistoriken</label>
+      </div>
+      <button class="btn btn-primary" id="imp-start" type="button">Importera</button>
+      <div class="bk-progress" id="imp-progress"><div class="bk-bar"><div></div></div><div class="bk-status"></div></div>
+      <div class="bk-result" id="imp-result"></div>
+    {% else %}
+      <p class="bk-status">Du har bara läsbehörighet och kan därför inte importera.</p>
+    {% endif %}
+  </div>
+
+  {% if is_admin %}
+  <div class="bk-card">
+    <h2>🗄️ Fullständig backup (admin)</h2>
+    <p class="lead">Hela instansen i en .tar.gz: alla användares filer, att-göra-listor och Kanban-tavlor, grupper, versionshistorik och databasen med konton och grupper.</p>
+    <div class="bk-note bk-warn">Filen innehåller alla konton (med hashade lösenord) och allt innehåll. Förvara den säkert.</div>
+    <a class="btn btn-primary" href="/api/backup/export-full">Ladda ner fullständig backup</a>
+
+    <h3 style="font-size: 0.98rem; margin: 1.5rem 0 0.35rem;">Återställ fullständig backup</h3>
+    {% if restore_allowed %}
+      <p class="lead" style="margin-bottom: 0.8rem;">Den här instansen är tom, så en fullständig backup kan läsas in. Alla konton, grupper och filer kommer från backupen, och du loggas ut när återställningen är klar.</p>
+      <div class="bk-row"><input type="file" id="full-file" accept=".tar.gz,.tgz,application/gzip"></div>
+      <div class="bk-row"><label><input type="checkbox" id="full-confirm"> Jag förstår att konton och innehåll ersätts med det som finns i backupen.</label></div>
+      <button class="btn btn-primary" id="full-start" type="button">Återställ</button>
+      <div class="bk-progress" id="full-progress"><div class="bk-bar"><div></div></div><div class="bk-status"></div></div>
+      <div class="bk-result" id="full-result"></div>
+    {% else %}
+      <p class="bk-status">Fullständig återställning kan bara göras i en tom instans, så att inget befintligt skrivs över. {{ restore_reason }}</p>
+      <p class="bk-status">Vill du läsa in dina egna filer, att-göra-listor eller Kanban-tavlor använder du <strong>Importera</strong> ovan.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+const CHUNK = {{ chunk_size }};
+
+function fmtBytes(n) {
+  const u = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return (i ? n.toFixed(1) : n) + ' ' + u[i];
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+function ui(prefix) {
+  const box = document.getElementById(prefix + '-progress');
+  return {
+    bar: box.querySelector('.bk-bar > div'),
+    status: box.querySelector('.bk-status'),
+    box,
+    result: document.getElementById(prefix + '-result'),
+    set(pct, text) {
+      box.style.display = 'block';
+      if (pct != null) this.bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      if (text != null) this.status.textContent = text;
+    },
+    done(ok, html) {
+      this.result.className = 'bk-result ' + (ok ? 'ok' : 'err');
+      this.result.innerHTML = html;
+      this.result.style.display = 'block';
+    },
+  };
+}
+
+async function api(method, url, body, headers) {
+  const res = await fetch(url, { method, body, headers, credentials: 'same-origin' });
+  let data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(data.error || ('Serverfel ' + res.status));
+  return data;
+}
+
+// Laddar upp i bitar på 32 MB, så att även stora backuper går igenom (Cloudflare).
+async function uploadFile(file, u) {
+  const start = await api('POST', '/api/backup/upload', JSON.stringify({ filename: file.name, size: file.size }),
+                          { 'Content-Type': 'application/json' });
+  const id = start.upload_id;
+  const size = start.chunk_size || CHUNK;
+  let offset = 0;
+  while (offset < file.size) {
+    const blob = file.slice(offset, offset + size);
+    let tries = 0;
+    for (;;) {
+      try {
+        const r = await api('PUT', `/api/backup/upload/${id}?offset=${offset}`, blob,
+                            { 'Content-Type': 'application/octet-stream' });
+        offset = r.received;
+        break;
+      } catch (e) {
+        if (++tries >= 3) throw e;
+        await new Promise(r => setTimeout(r, 1500 * tries));
+      }
+    }
+    u.set(offset / file.size * 100, `Laddar upp… ${fmtBytes(offset)} av ${fmtBytes(file.size)}`);
+  }
+  return id;
+}
+
+async function waitForJob(jobId, u, phases) {
+  for (;;) {
+    await new Promise(r => setTimeout(r, 1000));
+    const job = await api('GET', '/api/backup/jobs/' + jobId);
+    const p = job.progress || {};
+    if (p.total) {
+      u.set(p.done / p.total * 100, `${phases[p.phase] || 'Arbetar'}… ${p.done} av ${p.total} filer`);
+    } else if (p.done) {
+      u.set(null, `${phases[p.phase] || 'Arbetar'}… ${p.done} filer (${fmtBytes(p.bytes || 0)})`);
+    }
+    if (job.state === 'done') return job.result;
+    if (job.state === 'error') throw new Error(job.error);
+  }
+}
+
+const impBtn = document.getElementById('imp-start');
+if (impBtn) impBtn.addEventListener('click', async () => {
+  const file = document.getElementById('imp-file').files[0];
+  const u = ui('imp');
+  u.result.style.display = 'none';
+  if (!file) { u.done(false, 'Välj en .zip-fil att importera.'); return; }
+  const mode = document.querySelector('input[name=imp-mode]:checked').value;
+  impBtn.disabled = true;
+  try {
+    u.set(0, 'Laddar upp…');
+    const uploadId = await uploadFile(file, u);
+    u.set(0, 'Importerar…');
+    const { job_id } = await api('POST', '/api/backup/import', JSON.stringify({ upload_id: uploadId, mode }),
+                                 { 'Content-Type': 'application/json' });
+    const r = await waitForJob(job_id, u, { import: 'Importerar' });
+    u.set(100, 'Klart');
+    let html = `<strong>${esc(r.label)} importerade till <code>${esc(r.target)}</code></strong><ul>`
+      + `<li>${r.imported} filer importerade (${fmtBytes(r.bytes)})</li>`;
+    if (r.renamed) html += `<li>${r.renamed} fick nytt namn eftersom namnet redan fanns</li>`;
+    if (r.overwritten) html += `<li>${r.overwritten} ersatte befintliga filer (gamla versionen finns i historiken)</li>`;
+    if (r.identical) html += `<li>${r.identical} fanns redan med exakt samma innehåll</li>`;
+    if (r.exported_by) html += `<li>Exporterad av: ${esc(r.exported_by)}</li>`;
+    html += '</ul>';
+    if (r.skipped.length) {
+      html += `<details><summary>${r.skipped.length} hoppades över</summary><ul>`
+        + r.skipped.map(s => `<li><code>${esc(s.name)}</code>: ${esc(s.reason)}</li>`).join('') + '</ul></details>';
+    }
+    u.done(true, html);
+  } catch (e) {
+    u.done(false, 'Importen misslyckades: ' + esc(e.message));
+  } finally {
+    impBtn.disabled = false;
+  }
+});
+
+const fullBtn = document.getElementById('full-start');
+if (fullBtn) fullBtn.addEventListener('click', async () => {
+  const file = document.getElementById('full-file').files[0];
+  const u = ui('full');
+  u.result.style.display = 'none';
+  if (!file) { u.done(false, 'Välj en fullständig backup (.tar.gz).'); return; }
+  if (!document.getElementById('full-confirm').checked) { u.done(false, 'Bekräfta återställningen först.'); return; }
+  fullBtn.disabled = true;
+  try {
+    u.set(0, 'Laddar upp…');
+    const uploadId = await uploadFile(file, u);
+    u.set(0, 'Packar upp…');
+    const { job_id } = await api('POST', '/api/backup/restore-full', JSON.stringify({ upload_id: uploadId, confirm: true }),
+                                 { 'Content-Type': 'application/json' });
+    const r = await waitForJob(job_id, u, { unpack: 'Packar upp', install: 'Lägger på plats' });
+    u.set(100, 'Klart');
+    u.done(true, `<strong>Återställningen är klar.</strong> ${r.files} filer (${fmtBytes(r.bytes)}) från backupen gjord ${esc(r.created)}. `
+      + `Du loggas nu ut. Logga in med ett konto från backupen.`);
+    setTimeout(() => { window.location.href = '/logout'; }, 4000);
+  } catch (e) {
+    u.done(false, 'Återställningen misslyckades: ' + esc(e.message));
+    fullBtn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

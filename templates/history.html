@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Historik — {{ rel.split('/')|last }} — doc-harbor{% endblock %}
+
+{% block extra_css %}
+.history-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.history-sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: sticky;
+  top: 4rem;
+}
+.history-sidebar-header {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.version-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.version-item:last-child { border-bottom: none; }
+.version-item.active { background: #ddf4ff; }
+.version-ts { color: var(--text); font-variant-numeric: tabular-nums; }
+.version-size { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+.version-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.version-actions a, .version-actions button {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.version-actions a:hover { background: var(--bg); }
+.version-actions button { color: #1a7f37; border-color: #1a7f37; }
+.version-actions button:hover { background: #dafbe1; }
+.empty-versions {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Preview panel */
+.preview-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.preview-header {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.preview-header-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.preview-header-label strong { color: var(--text); }
+.preview-body {
+  padding: 1.5rem 2rem;
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
+}
+.preview-placeholder {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.preview-placeholder p { margin: 0.5rem 0; font-size: 0.95rem; }
+
+/* Reuse markdown and code styles from file.html */
+.preview-body h1 { font-size: 1.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin: 0 0 1rem; }
+.preview-body h2 { font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; margin: 1.5rem 0 0.75rem; }
+.preview-body h3 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; }
+.preview-body p  { margin: 0.75rem 0; line-height: 1.7; }
+.preview-body ul, .preview-body ol { margin: 0.75rem 0 0.75rem 1.6rem; }
+.preview-body code { background: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.875em; }
+.preview-body pre { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+.preview-body pre code { background: none; padding: 0; }
+.preview-body blockquote { border-left: 4px solid var(--border); padding: 0.25rem 1rem; color: var(--text-muted); margin: 1rem 0; }
+.preview-body table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.preview-body th, .preview-body td { border: 1px solid var(--border); padding: 0.4rem 0.7rem; font-size: 0.9rem; }
+.preview-body th { background: var(--bg); font-weight: 600; }
+.preview-body pre.plain {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.page-title-area h2 { font-size: 1.1rem; margin: 0 0 0.2rem; }
+.page-title-area p { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-area">
+    <h2>Versionshistorik</h2>
+    <p>{{ rel.split('/')|last }} &mdash; {{ versions|length }} sparade version{% if versions|length != 1 %}er{% endif %}</p>
+  </div>
+  <div style="display:flex;gap:0.5rem;">
+    {% if request.user_role != 'read-only' %}
+    <a class="btn btn-primary" href="{{ url_for('file.edit_view', rel=rel) }}">✏️ Redigera</a>
+    {% endif %}
+    <a class="btn" href="{{ up }}">← Tillbaka till fil</a>
+  </div>
+</div>
+
+<div class="history-layout">
+  {# ── Version list ── #}
+  <div class="history-sidebar">
+    <div class="history-sidebar-header">Sparade versioner</div>
+    {% if versions %}
+      {% for v in versions %}
+      <div class="version-item {% if current_v == v.name %}active{% endif %}">
+        <div>
+          <div class="version-ts local-time" data-ts="{{ v.mtime }}">{{ v.label }}</div>
+          <div class="version-size">{{ fmt_size(v.size) }}</div>
+        </div>
+        <div class="version-actions">
+          <a href="{{ url_for('file.history_view', rel=rel, v=v.name) }}">Visa</a>
+          {% if request.user_role != 'read-only' %}
+          <form method="POST" action="{{ url_for('file.restore_view', rel=rel) }}" style="display:inline"
+                onsubmit='return confirm({{ ("Återställ till version från " ~ v.label ~ "?\nNuvarande fil sparas som en ny version.")|tojson }})'>
+            <input type="hidden" name="version" value="{{ v.name }}">
+            <button type="submit">Återställ</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-versions">
+        Inga versioner sparade ännu.<br>
+        <small>Versioner skapas automatiskt när du sparar.</small>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ── Preview panel ── #}
+  <div class="preview-panel">
+    <div class="preview-header">
+      {% if version_label %}
+        <span class="preview-header-label">Version från <strong class="local-time" data-ts="{{ version_mtime }}">{{ version_label }}</strong></span>
+        {% if request.user_role != 'read-only' %}
+        <a class="btn btn-primary" style="font-size:0.8rem;padding:0.25rem 0.7rem;"
+           href="{{ url_for('file.restore_view', rel=rel) }}"
+           onclick="event.preventDefault(); this.closest('div').querySelector('form').submit()">
+          Återställ denna version
+        </a>
+        <form method="POST" action="{{ url_for('file.restore_view', rel=rel) }}" style="display:none"
+              onsubmit='return confirm({{ ("Återställ till version från " ~ version_label ~ "?\nNuvarande fil sparas som en ny version.")|tojson }})'>
+          <input type="hidden" name="version" value="{{ current_v }}">
+        </form>
+        {% endif %}
+      {% else %}
+        <span class="preview-header-label">Välj en version till vänster för att förhandsgranska</span>
+      {% endif %}
+    </div>
+
+    {% if version_content is not none %}
+      <div class="preview-body">
+        {% if file_ext == '.md' %}
+          {{ version_content | markdown_render }}
+        {% elif file_ext == '.html' %}
+          {{ version_content | safe }}
+        {% else %}
+          <pre class="plain">{{ version_content }}</pre>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="preview-placeholder">
+        <p>👈 Klicka på en version i listan</p>
+        <p>Versioner sparas automatiskt varje gång du sparar filen.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}{{ rel.split('/')|last }} — doc-harbor{% endblock %}
+
+{% block extra_css %}
+.file-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.file-title {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-title strong { color: var(--text); }
+.file-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+/* ── Markdown ── */
+.markdown-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem 2.5rem;
+  max-width: 860px;
+}
+.markdown-body h1 { font-size: 1.9rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); margin: 0 0 1rem; }
+.markdown-body h2 { font-size: 1.4rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); margin: 1.75rem 0 0.75rem; }
+.markdown-body h3 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
+.markdown-body h4 { font-size: 1rem; margin: 1.25rem 0 0.4rem; }
+.markdown-body p { margin: 0.75rem 0; }
+.markdown-body ul, .markdown-body ol { margin: 0.75rem 0 0.75rem 1.6rem; }
+.markdown-body li { margin: 0.25rem 0; }
+.markdown-body code {
+  background: #f3f4f6;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.875em;
+  color: #c0392b;
+}
+.markdown-body pre {
+  background: #f6f8fa;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+.markdown-body table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 0.45rem 0.75rem; font-size: 0.9rem; }
+.markdown-body th { background: var(--bg); font-weight: 600; }
+.markdown-body blockquote {
+  border-left: 4px solid var(--border);
+  padding: 0.25rem 1rem;
+  color: var(--text-muted);
+  margin: 1rem 0;
+  background: var(--bg);
+  border-radius: 0 4px 4px 0;
+}
+.markdown-body a { color: var(--accent); }
+.markdown-body img { max-width: 100%; border-radius: 4px; }
+.markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+/* ── Code ── */
+.code-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.875rem;
+}
+.code-body .source table { width: 100%; border-collapse: collapse; }
+.code-body .source .linenos {
+  background: var(--bg);
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+  padding: 0.75rem 0.75rem;
+  user-select: none;
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  vertical-align: top;
+}
+.code-body .source .code { padding: 0.75rem 1rem; overflow-x: auto; }
+.code-body .source .code pre { margin: 0; white-space: pre; }
+{% if pygments_css %}{{ pygments_css }}{% endif %}
+
+/* ── Image ── */
+.image-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
+.image-body img { max-width: 100%; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+/* ── HTML preview ── */
+.html-preview-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.html-preview-toolbar a {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.html-preview-toolbar a:hover { color: var(--accent); }
+.html-body {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.html-body iframe {
+  display: block;
+  width: 100%;
+  border: none;
+  min-height: 600px;
+}
+html.dark .markdown-body code {
+  background: #21262d;
+  color: #ff7b72;
+}
+html.dark .markdown-body pre {
+  background: #161b22;
+  border-color: var(--border);
+}
+{% endblock %}
+
+{% block content %}
+<div class="file-header">
+  <span class="file-title"><strong>{{ rel.split('/')|last }}</strong></span>
+  <div class="file-actions">
+    {% if is_editable and request.user_role != 'read-only' %}
+    <a class="btn btn-primary" href="{{ url_for('file.edit_view', rel=rel) }}">✏️ Redigera</a>
+    {% endif %}
+    {% if version_count %}
+    <a class="btn" href="{{ url_for('file.history_view', rel=rel) }}">🕓 Historik ({{ version_count }})</a>
+    {% endif %}
+    {% set fname = rel.split('/')|last %}
+    {% if request.user_role != 'read-only' %}
+    <form method="POST" action="{{ url_for('file.delete_view', rel=rel) }}" style="display:inline"
+          onsubmit='return confirm({{ ("Radera " ~ fname ~ "? Detta går inte att ångra.")|tojson }})'>
+      <button type="submit" class="btn" style="color:#cf222e;border-color:#cf222e;">🗑 Radera</button>
+    </form>
+    {% endif %}
+    <a class="btn" href="{{ up }}">← Tillbaka</a>
+  </div>
+</div>
+
+{% if content_type == 'markdown' %}
+  <div class="markdown-body">{{ content|safe }}</div>
+
+{% elif content_type == 'code' %}
+  <div class="code-body">{{ content|safe }}</div>
+
+{% elif content_type == 'image' %}
+  <div class="image-body">
+    <img src="{{ url_for('file.image_view', rel=rel) }}" alt="{{ rel.split('/')|last }}">
+  </div>
+
+{% elif content_type == 'html' %}
+  <div class="html-preview-toolbar">
+    <span style="font-size:0.8rem;color:var(--text-muted);">Förhandsgranskning</span>
+    <a href="{{ url_for('file.raw_html_view', rel=rel) }}" target="_blank">↗ Öppna i nytt fönster</a>
+  </div>
+  <div class="html-body">
+    <iframe src="{{ url_for('file.raw_html_view', rel=rel) }}"
+            sandbox="allow-same-origin allow-scripts"
+            id="html-iframe"></iframe>
+  </div>
+  <script>
+    (function() {
+      var iframe = document.getElementById('html-iframe');
+      function resize() {
+        try {
+          var h = iframe.contentDocument.documentElement.scrollHeight;
+          if (h > 100) iframe.style.height = h + 'px';
+        } catch(e) {}
+      }
+      iframe.addEventListener('load', function() {
+        resize();
+        try {
+          if (document.documentElement.classList.contains('dark')) {
+            var doc = iframe.contentDocument;
+            var style = doc.createElement('style');
+            style.textContent = 'body { background: #161b22 !important; color: #c9d1d9 !important; } a { color: #58a6ff !important; }';
+            doc.head.appendChild(style);
+            // Re-resize in case style change affected content height
+            resize();
+          }
+        } catch(e) {
+          console.error("Could not inject theme CSS into iframe:", e);
+        }
+      });
+    })();
+  </script>
+{% endif %}
+{% endblock %}

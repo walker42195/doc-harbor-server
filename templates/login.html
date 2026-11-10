@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logga in — doc-harbor</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 360px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .logo svg { display: block; margin: 0 auto 0.75rem; }
+    .logo h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #58a6ff;
+      letter-spacing: -0.01em;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #8b949e;
+      margin-bottom: 0.35rem;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: #58a6ff;
+    }
+    .field { margin-bottom: 1rem; }
+    .btn {
+      width: 100%;
+      padding: 0.6rem;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #2ea043; }
+    .error {
+      background: #3d1c1c;
+      border: 1px solid #f85149;
+      border-radius: 6px;
+      color: #f85149;
+      font-size: 0.85rem;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='anchor_login.png') }}" alt="doc-harbor logo" style="width: 96px; height: 96px; display: block; margin: 0 auto 0.75rem; border-radius: 50%;">
+      <h1>doc-harbor</h1>
+    </div>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="field">
+        <label for="username">Användarnamn</label>
+        <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+      </div>
+      <div class="field">
+        <label for="password">Lösenord</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn">Logga in</button>
+    </form>
+    {% if registration_enabled %}
+    <p style="text-align:center;margin-top:1rem;font-size:0.85rem;color:#8b949e;">
+      Inget konto? <a href="/register" style="color:#58a6ff;text-decoration:none;">Registrera dig</a>
+    </p>
+    {% endif %}
+  </div>
+</body>
+</html>

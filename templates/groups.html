@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Grupper — doc-harbor{% endblock %}
+
+{% block extra_css %}
+.groups-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+th {
+  background: var(--bg);
+  padding: 0.5rem 0.8rem;
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f0f6ff; }
+.role-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+}
+.badge-owner { background: #ddf4ff; color: #0969da; }
+.badge-member { background: #f0f3f9; color: #57606a; }
+.badge-admin { background: #fff3cd; color: #856404; }
+.group-members-list {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+.group-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.btn-sm {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-sm:hover { background: var(--bg); }
+.btn-danger { color: #cf222e; border-color: #cf222e; }
+.btn-danger:hover { background: #ffebe9; }
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: var(--text-muted);
+}
+input[type="text"], input[type="email"], select, textarea {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  background: var(--surface);
+  color: var(--text);
+  margin-bottom: 0.8rem;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9,105,218,0.12);
+}
+textarea { min-height: 3rem; resize: vertical; }
+.flash-success {
+  background: #dafbe1; color: #1a7f37;
+  border: 1px solid rgba(26,127,55,0.15);
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.flash-error {
+  background: #ffebe9; color: #cf222e;
+  border: 1px solid rgba(207,34,46,0.15);
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2.5rem 1rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 760px) {
+  .groups-layout { grid-template-columns: 1fr; }
+}
+{% endblock %}
+
+{% block content %}
+{% if success %}
+<div class="flash-success">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="flash-error">{{ error }}</div>
+{% endif %}
+
+<div class="groups-layout">
+
+  {# ── Left: group list ── #}
+  <div>
+    <div class="section-title">👥 Grupper</div>
+    {% if groups %}
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <table>
+        <thead>
+          <tr>
+            <th>Grupp</th>
+            <th>Medlemmar</th>
+            {% if request.user_role == 'admin' %}
+            <th>Skapad av</th>
+            {% endif %}
+            <th>Din roll</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in groups %}
+          <tr>
+            <td>
+              <a href="{{ url_for('file.browse_view', rel='Groups/' + g.id) }}"
+                 style="font-weight:600;color:var(--accent);text-decoration:none;">
+                {{ g.name }}
+              </a>
+              {% if g.description %}
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.15rem;">{{ g.description }}</div>
+              {% endif %}
+              <div class="group-members-list">
+                {% for m in g.members %}
+                  <span>{{ m.username }}{% if m.role == 'owner' %} (ägare){% endif %}{% if not loop.last %}, {% endif %}</span>
+                {% endfor %}
+              </div>
+            </td>
+            <td style="white-space:nowrap;">{{ g.member_count }} st</td>
+            {% if request.user_role == 'admin' %}
+            <td style="font-size:0.82rem;color:var(--text-muted);">{{ g.created_by }}</td>
+            {% endif %}
+            <td>
+              {% if g.my_role == 'owner' %}
+                <span class="role-badge badge-owner">Ägare</span>
+              {% elif g.my_role == 'member' %}
+                <span class="role-badge badge-member">Medlem</span>
+              {% elif request.user_role == 'admin' %}
+                <span class="role-badge badge-admin">Admin</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="group-actions">
+                {# Rename #}
+                {% if g.my_role == 'owner' or request.user_role == 'admin' %}
+                <button class="btn-sm rename-btn"
+                        data-group-id="{{ g.id }}"
+                        data-group-name="{{ g.name }}">✏️ Döp om</button>
+                {% endif %}
+
+                {# Invite member #}
+                {% if g.my_role == 'owner' or request.user_role == 'admin' %}
+                <button class="btn-sm invite-btn"
+                        data-group-id="{{ g.id }}"
+                        data-group-name="{{ g.name }}">➕ Bjud in</button>
+                {% endif %}
+
+                {# Leave #}
+                {% if g.my_role == 'member' %}
+                <form method="POST" action="/groups/{{ g.id }}/remove" style="display:inline">
+                  <input type="hidden" name="username" value="{{ request.username }}">
+                  <button type="submit" class="btn-sm leave-btn"
+                          data-group-name="{{ g.name }}">👋 Lämna</button>
+                </form>
+                {% endif %}
+
+                {# Delete #}
+                {% if g.my_role == 'owner' or request.user_role == 'admin' %}
+                <form method="POST" action="/groups/{{ g.id }}/delete" style="display:inline">
+                  <button type="submit" class="btn-sm btn-danger delete-btn"
+                          data-group-name="{{ g.name }}">🗑 Radera</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card empty-state">
+      Du är inte med i någon grupp ännu.<br>
+      <small>Skapa en grupp eller be en gruppadmin bjuda in dig.</small>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Right: forms ── #}
+  <div>
+    {# Create group form #}
+    <div class="card">
+      <div class="section-title">Skapa grupp</div>
+      <form method="POST" action="/groups/create">
+        <label for="name">Gruppnamn</label>
+        <input type="text" id="name" name="name" required placeholder="Projektnamn…">
+        <label for="description">Beskrivning <small style="font-weight:400;">(valfritt)</small></label>
+        <textarea id="description" name="description" placeholder="Kort beskrivning av gruppen…"></textarea>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Skapa grupp</button>
+      </form>
+    </div>
+
+    {# Admin: manage members of all groups #}
+    {% if request.user_role == 'admin' and groups %}
+    <div class="card">
+      <div class="section-title">Hantera medlemmar</div>
+      <form method="POST" id="invite-form" action="">
+        <label for="invite-group">Grupp</label>
+        <select id="invite-group" name="invite_group_id" required>
+          <option value="">Välj grupp…</option>
+          {% for g in groups %}
+          <option value="{{ g.id }}">{{ g.name }}</option>
+          {% endfor %}
+        </select>
+        <label for="invite-user">Användare (e-post)</label>
+        <input type="email" id="invite-user" name="username" required placeholder="anvandare@epost.se">
+        <button type="submit" class="btn btn-primary" style="width:100%;">Bjud in</button>
+      </form>
+      <script>
+        document.getElementById('invite-form').addEventListener('submit', function(e) {
+          const gid = document.getElementById('invite-group').value;
+          if (!gid) { e.preventDefault(); return; }
+          this.action = '/groups/' + gid + '/invite';
+        });
+      </script>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{# ── Rename modal ── #}
+<div id="rename-modal" class="modal-backdrop" style="display:none;" onclick="if(event.target===this)closeRenameModal()">
+  <div class="modal-box" style="max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;">
+    <div style="font-weight:700;margin-bottom:1rem;">Döp om grupp</div>
+    <form method="POST" id="rename-form" action="">
+      <label for="rename-input">Nytt namn</label>
+      <input type="text" id="rename-input" name="name" required>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button type="submit" class="btn btn-primary">Spara</button>
+        <button type="button" class="btn" onclick="closeRenameModal()">Avbryt</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Invite modal (for non-admin owners) ── #}
+<div id="invite-modal" class="modal-backdrop" style="display:none;" onclick="if(event.target===this)closeInviteModal()">
+  <div class="modal-box" style="max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;">
+    <div style="font-weight:700;margin-bottom:1rem;">Bjud in till <span id="invite-group-name"></span></div>
+    <form method="POST" id="invite-modal-form" action="">
+      <label for="invite-modal-user">Användarens e-post</label>
+      <input type="email" id="invite-modal-user" name="username" required placeholder="anvandare@epost.se">
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button type="submit" class="btn btn-primary">Bjud in</button>
+        <button type="button" class="btn" onclick="closeInviteModal()">Avbryt</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+</style>
+
+<script>
+function openRenameModal(groupId, currentName) {
+  document.getElementById('rename-form').action = '/groups/' + groupId + '/rename';
+  document.getElementById('rename-input').value = currentName;
+  document.getElementById('rename-modal').style.display = 'flex';
+  document.getElementById('rename-input').focus();
+}
+function closeRenameModal() {
+  document.getElementById('rename-modal').style.display = 'none';
+}
+
+function openInviteModal(groupId, groupName) {
+  document.getElementById('invite-modal-form').action = '/groups/' + groupId + '/invite';
+  document.getElementById('invite-group-name').textContent = groupName;
+  document.getElementById('invite-modal').style.display = 'flex';
+  document.getElementById('invite-modal-user').value = '';
+  document.getElementById('invite-modal-user').focus();
+}
+function closeInviteModal() {
+  document.getElementById('invite-modal').style.display = 'none';
+}
+
+// Hook up event listeners securely using data attributes
+document.querySelectorAll('.rename-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const groupId = this.getAttribute('data-group-id');
+    const groupName = this.getAttribute('data-group-name');
+    openRenameModal(groupId, groupName);
+  });
+});
+
+document.querySelectorAll('.invite-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const groupId = this.getAttribute('data-group-id');
+    const groupName = this.getAttribute('data-group-name');
+    openInviteModal(groupId, groupName);
+  });
+});
+
+document.querySelectorAll('.leave-btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    const groupName = this.getAttribute('data-group-name');
+    if (!confirm('Är du säker på att du vill lämna gruppen "' + groupName + '"?')) {
+      e.preventDefault();
+    }
+  });
+});
+
+document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    const groupName = this.getAttribute('data-group-name');
+    if (!confirm('Är du säker på att du vill radera gruppen "' + groupName + '"? Allt innehåll tas bort permanent!')) {
+      e.preventDefault();
+    }
+  });
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeRenameModal();
+    closeInviteModal();
+  }
+});
+</script>
+{% endblock %}

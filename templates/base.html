@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}doc-harbor{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <script>
+    (function() {
+      const theme = localStorage.getItem('theme') || 'light';
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+      const hc = localStorage.getItem('hc') || '0';
+      if (hc === '1') {
+        document.documentElement.classList.add('hc');
+      }
+    })();
+  </script>
+  {% block extra_head %}{% endblock %}
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --accent: #0969da;
+      --header-bg: #161b22;
+      --header-fg: #e6edf3;
+      --crumb-sep: #484f58;
+      --hover-bg: #f0f6ff;
+      --active-bg: #e6f0ff;
+    }
+
+    html.dark {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --header-bg: #161b22;
+      --header-fg: #f0f6fc;
+      --crumb-sep: #30363d;
+      --hover-bg: #21262d;
+      --active-bg: #1f2937;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--header-bg);
+      padding: 0 1.5rem;
+      height: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      color: #58a6ff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+    }
+    .logo:hover { color: var(--header-fg); }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: var(--crumb-sep);
+      overflow: hidden;
+    }
+    .breadcrumb a { color: #58a6ff; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb .sep { color: var(--crumb-sep); }
+    .breadcrumb .current { color: var(--header-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Smala skärmar: låt sidhuvudets länkar radbrytas i stället för att hamna utanför skärmen */
+    @media (max-width: 760px) {
+      header { height: auto; min-height: 3rem; flex-wrap: wrap; padding: 0.45rem 0.85rem; row-gap: 0.35rem; }
+      header > div:last-of-type { flex-wrap: wrap; row-gap: 0.3rem; }
+    }
+    /* ── Main ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; flex-grow: 1; width: 100%; }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding: 0.6rem 1.5rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    footer p { font-size: 12px; color: var(--text-muted); margin: 0.25rem 0; }
+    footer a { color: var(--text-muted); text-decoration: none; transition: color .15s; }
+    footer a:hover { color: var(--accent); }
+    .update-banner { background: var(--accent-bg, rgba(9,105,218,.12)); border-bottom: 1px solid var(--border, #30363d); color: var(--text, inherit); font-size: 0.85rem; padding: 0.5rem 1.25rem; text-align: center; }
+    .update-banner a { color: #58a6ff; margin-left: 0.5rem; }
+
+    /* ── Theme & High Contrast Buttons ── */
+    .theme-btn {
+      background: none;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover {
+      border-color: #8b949e;
+      color: #f0f6fc;
+      background: rgba(255,255,255,0.05);
+    }
+    html.dark #btn-theme {
+      background: rgba(255,255,255,0.1);
+      color: #f0f6fc;
+      border-color: #58a6ff;
+    }
+    html.hc #btn-hc {
+      background: #0969da !important;
+      color: #ffffff !important;
+      border-color: #0969da !important;
+    }
+    html.dark.hc #btn-hc {
+      background: #58a6ff !important;
+      color: #0d1117 !important;
+      border-color: #58a6ff !important;
+    }
+
+    /* ── High Contrast Mode overrides ── */
+    html.hc, html.hc td, html.hc p, html.hc span, html.hc h1, html.hc h2, html.hc h3, html.hc a {
+      color: #000000 !important;
+    }
+    html.hc a {
+      text-decoration: underline !important;
+      font-weight: bold !important;
+    }
+    html.dark.hc, html.dark.hc td, html.dark.hc p, html.dark.hc span, html.dark.hc h1, html.dark.hc h2, html.dark.hc h3, html.dark.hc a {
+      color: #ffffff !important;
+    }
+    html.dark.hc a {
+      text-decoration: underline !important;
+      font-weight: bold !important;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.12s;
+    }
+    .btn:hover { background: var(--bg); }
+    .btn-primary { background: #1a7f37; color: #fff; border-color: #1a7f37; }
+    .btn-primary:hover { background: #116329; }
+
+    {% block extra_css %}{% endblock %}
+  </style>
+</head>
+<body>
+  <header style="justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 1rem; overflow: hidden;">
+      <a class="logo" href="/">
+        <img src="{{ url_for('static', filename='favicon.png') }}" alt="" style="width: 24px; height: 24px; vertical-align: middle; border-radius: 5px;">
+        <span style="font-weight: 800; letter-spacing: -0.3px; margin-left: 6px;">doc-harbor</span>
+      </a>
+      <nav class="breadcrumb">
+        {% for name, href in (crumbs or [])[1:] %}
+          <span class="sep">/</span>
+          {% if not loop.last %}
+            <a href="{{ href }}">{{ name }}</a>
+          {% else %}
+            <span class="current">{{ name }}</span>
+          {% endif %}
+        {% endfor %}
+      </nav>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem;">
+      <button id="btn-theme" type="button" onclick="toggleTheme()" class="theme-btn" title="Byt tema (Ljust/Mörkt)">🌓 Tema</button>
+      <button id="btn-hc" type="button" onclick="toggleHC()" class="theme-btn" title="Höj kontrast">👁️ Kontrast</button>
+      {% if request.username %}
+        <span style="color: var(--header-fg);">{{ request.username }} ({{ request.user_role }})</span>
+        {% if request.user_role == 'admin' %}
+          <a href="/users" style="color: #58a6ff; text-decoration: none; font-weight: 500;">⚙️ Användare</a>
+        {% endif %}
+        <a href="/groups" style="color: #58a6ff; text-decoration: none; font-weight: 500;">👥 Grupper</a>
+        <a href="/todo" style="color: #58a6ff; text-decoration: none; font-weight: 500;">📝 Todo</a>
+        <a href="/kanban" style="color: #58a6ff; text-decoration: none; font-weight: 500;">📋 Kanban</a>
+        <a href="/backup" style="color: #58a6ff; text-decoration: none; font-weight: 500;">💾 Backup</a>
+        <a href="/logout" style="color: #8b949e; text-decoration: none; font-size: 0.8rem;">Logga ut</a>
+      {% endif %}
+    </div>
+  </header>
+  {% if update_available and request.user_role == 'admin' %}
+  <div class="update-banner" role="status">
+    ⬆️ doc-harbor {{ latest_version }} finns (du kör {{ app_version }}).
+    {% if latest_url %}<a href="{{ latest_url }}" target="_blank" rel="noopener">Se vad som är nytt</a>{% endif %}
+  </div>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <p>© 2026 <a href="https://doc-harbor.sandgren.one">doc-harbor</a> · v{{ app_version }}</p>
+  </footer>
+  <script>
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+    function toggleHC() {
+      const isHC = document.documentElement.classList.toggle('hc');
+      localStorage.setItem('hc', isHC ? '1' : '0');
+    }
+
+    // Convert UNIX timestamps to user's local timezone
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelectorAll('.local-time').forEach(el => {
+        const ts = parseFloat(el.dataset.ts);
+        if (!isNaN(ts)) {
+          const date = new Date(ts * 1000);
+          const yyyy = date.getFullYear();
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          const hh = String(date.getHours()).padStart(2, '0');
+          const min = String(date.getMinutes()).padStart(2, '0');
+          el.textContent = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

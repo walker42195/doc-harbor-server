@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+{% block title %}doc-harbor - Att-göra-listor{% endblock %}
+
+{% block extra_css %}
+/* Full Screen Responsiveness */
+main {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 1rem 1.5rem !important;
+  box-sizing: border-box;
+}
+
+.todo-container {
+  display: flex;
+  gap: 1.25rem;
+  width: 100%;
+  min-height: calc(100vh - 7.5rem);
+}
+
+/* Sidebar Navigation */
+.todo-sidebar {
+  width: 280px;
+  min-width: 280px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 7.5rem);
+}
+
+.sidebar-section {
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.sidebar-section-header:hover {
+  background: var(--hover-bg);
+}
+
+.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-toggle-arrow {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  width: 14px;
+  display: inline-block;
+  text-align: center;
+}
+
+.sidebar-section-body {
+  display: none; /* COLLAPSED BY DEFAULT */
+  padding-left: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.sidebar-section-body.expanded {
+  display: block !important;
+}
+
+.sidebar-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 0.15rem;
+}
+
+.sidebar-list-item:hover {
+  background: var(--hover-bg);
+}
+
+.sidebar-list-item.active {
+  background: var(--active-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-item-actions {
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.sidebar-list-item:hover .sidebar-item-actions {
+  opacity: 1;
+}
+
+.sidebar-btn-icon {
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.sidebar-btn-icon:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
+}
+
+.sidebar-btn-icon.danger:hover {
+  color: #cf222e;
+}
+
+.quick-add-form {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  padding: 0 0.25rem;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.82rem;
+  background: var(--bg);
+  color: var(--text);
+  min-width: 0;
+}
+
+.quick-add-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Main panel */
+.todo-main {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.todo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.todo-header-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.todo-header h2 {
+  font-size: 1.25rem;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.task-list {
+  list-style: none;
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.task-item:last-child {
+  border-bottom: none;
+}
+
+.task-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-right: 0.75rem;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.task-text {
+  font-size: 0.95rem;
+  color: var(--text);
+  flex-grow: 1;
+  transition: color 0.15s, text-decoration 0.15s;
+}
+
+.task-item.completed .task-text {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.task-delete {
+  background: none;
+  border: none;
+  color: #cf222e;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0.4;
+  padding: 0 0.5rem;
+  transition: opacity 0.15s;
+}
+
+.task-item:hover .task-delete {
+  opacity: 1;
+}
+
+.task-edit-btn {
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0 0.5rem;
+  transition: opacity 0.15s;
+}
+
+.task-item:hover .task-edit-btn {
+  opacity: 0.5;
+}
+
+.task-item:hover .task-edit-btn:hover {
+  opacity: 1;
+}
+
+.task-input-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.task-input {
+  flex-grow: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.task-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+{% endblock %}
+
+{% block content %}
+<div class="todo-container">
+  
+  <!-- Sidebar -->
+  <aside class="todo-sidebar">
+    
+    <!-- Section 1: Filträd -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">
+        <div class="sidebar-section-title">
+          <span class="sidebar-toggle-arrow" id="arrow-sec-tree" onclick="toggleSidebarSection('sec-tree')">►</span>
+          <span onclick="window.location.href='/browse/'" style="cursor:pointer;flex:1;">⚓ Filträd</span>
+        </div>
+      </div>
+      <div class="sidebar-section-body" id="sec-tree">
+        <div id="sidebar-folder-tree">
+          <p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Laddar...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Att-göra-listor -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">
+        <div class="sidebar-section-title">
+          <span class="sidebar-toggle-arrow" id="arrow-sec-todo" onclick="toggleSidebarSection('sec-todo')">►</span>
+          <span onclick="window.location.href='/todo'" style="cursor:pointer;flex:1;">📝 Att-göra-listor</span>
+        </div>
+      </div>
+      <div class="sidebar-section-body" id="sec-todo">
+        <div id="lists-container">
+          <p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Laddar...</p>
+        </div>
+        {% if request.user_role != 'read-only' %}
+        <form class="quick-add-form" onsubmit="createNewList(event)">
+          <input type="text" class="quick-add-input" id="new-list-name" placeholder="+ Ny Todo-lista..." required>
+          <button class="btn btn-primary" type="submit" style="padding:0.2rem 0.5rem;font-size:0.8rem;">+</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Section 3: Kanban -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">
+        <div class="sidebar-section-title">
+          <span class="sidebar-toggle-arrow" id="arrow-sec-kanban" onclick="toggleSidebarSection('sec-kanban')">►</span>
+          <span onclick="window.location.href='/kanban'" style="cursor:pointer;flex:1;">📋 Kanban</span>
+        </div>
+      </div>
+      <div class="sidebar-section-body" id="sec-kanban">
+        <div id="sidebar-kanban-list">
+          <p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Laddar...</p>
+        </div>
+        {% if request.user_role != 'read-only' %}
+        <form class="quick-add-form" onsubmit="createKanbanFromSidebar(event)">
+          <input type="text" class="quick-add-input" id="sidebar-new-kanban" placeholder="+ Ny Kanban-tavla..." required>
+          <button class="btn btn-primary" type="submit" style="padding:0.2rem 0.5rem;font-size:0.8rem;">+</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Main Tasks Panel -->
+  <main class="todo-main">
+    <div class="todo-header">
+      <div class="todo-header-title-area">
+        <h2 id="active-list-title">Välj en lista</h2>
+        {% if request.user_role != 'read-only' %}
+        <button class="sidebar-btn-icon" id="rename-list-btn" onclick="renameActiveList()" title="Döp om lista" style="display:none;font-size:1rem;padding:2px 6px;">✏️</button>
+        {% endif %}
+      </div>
+      {% if request.user_role != 'read-only' %}
+      <button class="btn" id="delete-list-btn" onclick="deleteActiveList()" style="color: #cf222e; border-color: rgba(207,34,46,0.15); display: none;">
+        Ta bort lista
+      </button>
+      {% endif %}
+    </div>
+
+    <div id="todo-content-area" style="display: none; flex-direction: column; flex-grow: 1;">
+      {% if request.user_role != 'read-only' %}
+      <form id="add-task-form" onsubmit="addTask(event)" class="task-input-container">
+        <textarea class="task-input" id="new-task-text" placeholder="Lägg till en uppgift... (Skift+Enter för ny rad)" required autocomplete="off" rows="2" style="resize: vertical;"></textarea>
+        <button class="btn btn-primary" type="submit">Lägg till</button>
+      </form>
+      {% endif %}
+
+      <ul class="task-list" id="tasks-container">
+        <!-- Loaded dynamically -->
+      </ul>
+    </div>
+    
+    <div id="no-list-selected" style="display: flex; align-items: center; justify-content: center; flex-grow: 1; color: var(--text-muted); font-size: 0.95rem;">
+      Laddar listor...
+    </div>
+  </main>
+
+</div>
+
+<script>
+  let activeList = '';
+  let todoLists = [];
+  let todoItems = [];
+  let isReadOnly = {{ 'true' if request.user_role == 'read-only' else 'false' }};
+
+  // Section Toggle Function (Fälla in/ut)
+  function toggleSidebarSection(secId) {
+    const body = document.getElementById(secId);
+    const arrow = document.getElementById('arrow-' + secId);
+    if (!body) return;
+
+    const isExpanded = body.classList.toggle('expanded');
+    if (arrow) {
+      arrow.textContent = isExpanded ? '▼' : '►';
+    }
+    try {
+      localStorage.setItem('sidebar_sec_' + secId, isExpanded ? 'open' : 'closed');
+    } catch (_) {}
+  }
+
+  function restoreSidebarSections(defaultActiveSecId) {
+    const sections = ['sec-tree', 'sec-todo', 'sec-kanban', 'sec-groups'];
+    sections.forEach(secId => {
+      const body = document.getElementById(secId);
+      const arrow = document.getElementById('arrow-' + secId);
+      if (!body) return;
+
+      const saved = localStorage.getItem('sidebar_sec_' + secId);
+      let shouldOpen = false;
+      if (saved === 'open') {
+        shouldOpen = true;
+      } else if (saved === 'closed') {
+        shouldOpen = false;
+      } else if (secId === defaultActiveSecId) {
+        shouldOpen = true;
+      }
+
+      if (shouldOpen) {
+        body.classList.add('expanded');
+        if (arrow) arrow.textContent = '▼';
+      } else {
+        body.classList.remove('expanded');
+        if (arrow) arrow.textContent = '►';
+      }
+    });
+  }
+
+  // Parse plain text file content to TodoItem objects
+  function parseTodoText(text) {
+    const lines = text.split('\n');
+    const items = [];
+    for (let line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      
+      let completed = false;
+      let title = trimmed;
+      
+      const match = trimmed.match(/^\[([ xX])\]\s*(.*)$/);
+      if (match) {
+        completed = match[1].toLowerCase() === 'x';
+        title = match[2].trim();
+      } else {
+        title = trimmed;
+      }
+      
+      const decodedTitle = title.replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+      items.push({ title: decodedTitle, completed });
+    }
+    items.sort((a, b) => (a.completed ? 1 : 0) - (b.completed ? 1 : 0));
+    return items;
+  }
+
+  // Serialize TodoItem objects to plain text file format
+  function serializeTodoItems(items) {
+    return items.map(item => {
+      const escapedTitle = item.title.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+      return `[${item.completed ? 'x' : ' '}] ${escapedTitle}`;
+    }).join('\n');
+  }
+
+  async function loadLists(selectName = null) {
+    try {
+      const response = await fetch('/api/todo');
+      const data = await response.json();
+      todoLists = data.lists || [];
+      
+      const container = document.getElementById('lists-container');
+      container.innerHTML = '';
+      
+      todoLists.forEach(name => {
+        const item = document.createElement('div');
+        item.className = `sidebar-list-item${name === activeList ? ' active' : ''}`;
+        item.innerHTML = `
+          <span onclick="selectList('${name}')" style="flex:1;">📝 ${name}</span>
+          ${!isReadOnly ? `
+          <div class="sidebar-item-actions">
+            <button class="sidebar-btn-icon" onclick="renameListByName(event, '${name}')" title="Döp om">✏️</button>
+            <button class="sidebar-btn-icon danger" onclick="deleteListByName(event, '${name}')" title="Radera">&times;</button>
+          </div>` : ''}
+        `;
+        container.appendChild(item);
+      });
+
+      // Also load Kanban lists and Folder tree in sidebar
+      loadSidebarKanban();
+      try {
+        const res = await fetch('/api/browse');
+        const data = await res.json();
+        const fContainer = document.getElementById('sidebar-folder-tree');
+        if (fContainer) {
+          fContainer.innerHTML = '';
+          const dirs = (data.entries || []).filter(e => e.is_dir);
+          if (dirs.length === 0) {
+            fContainer.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Inga mappar</p>';
+          } else {
+            dirs.forEach(dir => {
+              const item = document.createElement('div');
+              item.className = 'sidebar-list-item';
+              item.innerHTML = `<span onclick="window.location.href='/browse/${encodeURIComponent(dir.rel)}'">📁 ${dir.name}</span>`;
+              fContainer.appendChild(item);
+            });
+          }
+        }
+      } catch(e) { console.error(e); }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramList = urlParams.get('list');
+      let savedList = null;
+      try { savedList = localStorage.getItem('doc_harbor_last_todo_list'); } catch (_) {}
+
+      if (todoLists.length > 0) {
+        let toSelect = todoLists[0];
+        if (selectName && todoLists.includes(selectName)) {
+          toSelect = selectName;
+        } else if (paramList && todoLists.includes(paramList)) {
+          toSelect = paramList;
+        } else if (savedList && todoLists.includes(savedList)) {
+          toSelect = savedList;
+        }
+        selectList(toSelect);
+      } else {
+        activeList = '';
+        document.getElementById('no-list-selected').textContent = 'Inga listor hittades. Skapa en ny lista till vänster.';
+        document.getElementById('no-list-selected').style.display = 'flex';
+        document.getElementById('todo-content-area').style.display = 'none';
+        document.getElementById('delete-list-btn').style.display = 'none';
+        if (document.getElementById('rename-list-btn')) document.getElementById('rename-list-btn').style.display = 'none';
+        document.getElementById('active-list-title').textContent = 'Välj en lista';
+      }
+    } catch (e) {
+      console.error(e);
+      document.getElementById('no-list-selected').textContent = 'Kunde inte ladda listor.';
+    }
+  }
+
+  async function loadSidebarKanban() {
+    try {
+      const res = await fetch('/api/kanban');
+      const data = await res.json();
+      const container = document.getElementById('sidebar-kanban-list');
+      container.innerHTML = '';
+      (data.boards || []).forEach(name => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-list-item';
+        item.innerHTML = `
+          <span onclick="window.location.href='/kanban?board=${encodeURIComponent(name)}'">📋 ${name}</span>
+        `;
+        container.appendChild(item);
+      });
+    } catch(e) { console.error(e); }
+  }
+
+  async function selectList(name) {
+    activeList = name;
+    try { localStorage.setItem('doc_harbor_last_todo_list', name); } catch (_) {}
+    history.replaceState(null, '', `/todo?list=${encodeURIComponent(name)}`);
+    
+    document.querySelectorAll('#lists-container .sidebar-list-item').forEach(el => {
+      if (el.textContent.includes(name)) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+
+    document.getElementById('active-list-title').textContent = name;
+    if (document.getElementById('delete-list-btn')) document.getElementById('delete-list-btn').style.display = 'block';
+    if (document.getElementById('rename-list-btn')) document.getElementById('rename-list-btn').style.display = 'inline-block';
+    
+    document.getElementById('no-list-selected').style.display = 'none';
+    document.getElementById('todo-content-area').style.display = 'flex';
+
+    await loadTasks(name);
+  }
+
+  async function loadTasks(name) {
+    try {
+      const response = await fetch(`/api/todo/${encodeURIComponent(name)}`);
+      if (response.status === 404) {
+        todoItems = [];
+      } else {
+        const text = await response.text();
+        todoItems = parseTodoText(text);
+      }
+      renderTasks();
+    } catch (e) {
+      console.error(e);
+      document.getElementById('tasks-container').innerHTML = '<li style="padding:1rem;color:#cf222e;text-align:center;">Kunde inte ladda uppgifter.</li>';
+    }
+  }
+
+  function renderTasks() {
+    const container = document.getElementById('tasks-container');
+    container.innerHTML = '';
+    
+    todoItems.forEach((item, index) => {
+      const li = document.createElement('li');
+      li.className = `task-item${item.completed ? ' completed' : ''}`;
+      
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.className = 'task-checkbox';
+      check.checked = item.completed;
+      check.disabled = isReadOnly;
+      check.onchange = () => toggleTask(index);
+      
+      const span = document.createElement('span');
+      span.className = 'task-text';
+      span.textContent = item.title;
+      if (!isReadOnly) span.ondblclick = () => startEditTask(index, span);
+      
+      li.appendChild(check);
+      li.appendChild(span);
+
+      if (!isReadOnly) {
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'task-edit-btn';
+        editBtn.innerHTML = '✏️';
+        editBtn.onclick = () => startEditTask(index, span);
+        
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'task-delete';
+        del.innerHTML = '&times;';
+        del.onclick = () => deleteTask(index);
+        
+        li.appendChild(editBtn);
+        li.appendChild(del);
+      }
+
+      container.appendChild(li);
+    });
+  }
+
+  function startEditTask(index, span) {
+    const currentText = todoItems[index].title;
+    const input = document.createElement('textarea');
+    input.className = 'task-input';
+    input.value = currentText;
+    input.style.fontSize = '0.95rem';
+    input.style.padding = '4px 8px';
+    input.style.flexGrow = '1';
+    input.style.resize = 'vertical';
+    input.rows = 15;
+    
+    span.replaceWith(input);
+    input.focus();
+    
+    let finished = false;
+    async function finishEdit() {
+      if (finished) return;
+      finished = true;
+      const newText = input.value.trim();
+      if (newText && newText !== currentText) {
+        todoItems[index].title = newText;
+        renderTasks();
+        await saveActiveList();
+      } else {
+        renderTasks();
+      }
+    }
+    
+    input.onblur = finishEdit;
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        finishEdit();
+      } else if (e.key === 'Escape') {
+        finished = true;
+        renderTasks();
+      }
+    };
+  }
+
+  async function saveActiveList() {
+    const text = serializeTodoItems(todoItems);
+    try {
+      const response = await fetch(`/api/todo/${encodeURIComponent(activeList)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: text
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert('Kunde inte spara listan: ' + (data.error || 'Okänt fel'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Kunde inte spara listan på grund av nätverksfel.');
+    }
+  }
+
+  async function addTask(e) {
+    e.preventDefault();
+    const input = document.getElementById('new-task-text');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    todoItems.push({ title: text, completed: false });
+    todoItems.sort((a, b) => (a.completed ? 1 : 0) - (b.completed ? 1 : 0));
+    input.value = '';
+    renderTasks();
+    await saveActiveList();
+  }
+
+  async function toggleTask(index) {
+    todoItems[index].completed = !todoItems[index].completed;
+    todoItems.sort((a, b) => (a.completed ? 1 : 0) - (b.completed ? 1 : 0));
+    renderTasks();
+    await saveActiveList();
+  }
+
+  async function deleteTask(index) {
+    todoItems.splice(index, 1);
+    renderTasks();
+    await saveActiveList();
+  }
+
+  async function createNewList(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('new-list-name');
+    const rawName = input.value.trim();
+    if (!rawName) return;
+
+    try {
+      const response = await fetch('/api/todo/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: rawName })
+      });
+      const data = await response.json();
+      if (data.success) {
+        input.value = '';
+        await loadLists(data.name);
+      } else {
+        alert('Kunde inte skapa lista: ' + (data.error || 'Okänt fel'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Kunde inte skapa lista.');
+    }
+  }
+
+  async function createKanbanFromSidebar(e) {
+    e.preventDefault();
+    const input = document.getElementById('sidebar-new-kanban');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/kanban/create', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = `/kanban?board=${encodeURIComponent(data.name)}`;
+      } else alert(data.error || 'Fel');
+    } catch(err) { alert('Nätverksfel'); }
+  }
+
+  async function renameListByName(e, oldName) {
+    if (e) e.stopPropagation();
+    const targetName = oldName || activeList;
+    if (!targetName) return;
+
+    const newName = prompt(`Ange nytt namn på Todo-listan "${targetName}":`, targetName);
+    if (!newName || newName.trim() === targetName) return;
+
+    try {
+      const response = await fetch(`/api/todo/${encodeURIComponent(targetName)}/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_name: newName.trim() })
+      });
+      const data = await response.json();
+      if (data.success) {
+        if (activeList === targetName) activeList = data.name;
+        await loadLists(data.name);
+      } else {
+        alert('Kunde inte döpa om lista: ' + (data.error || 'Okänt fel'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Kunde inte döpa om lista.');
+    }
+  }
+
+  function renameActiveList() {
+    renameListByName(null, activeList);
+  }
+
+  async function deleteListByName(e, name) {
+    if (e) e.stopPropagation();
+    const targetName = name || activeList;
+    if (!targetName) return;
+
+    if (!confirm(`Är du säker på att du vill radera listan "${targetName}" permanent?`)) return;
+    
+    try {
+      const response = await fetch(`/api/todo/${encodeURIComponent(targetName)}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        if (activeList === targetName) {
+          activeList = '';
+        }
+        await loadLists();
+      } else {
+        alert('Kunde inte radera lista: ' + (data.error || 'Okänt fel'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Kunde inte radera lista.');
+    }
+  }
+
+  function deleteActiveList() {
+    deleteListByName(null, activeList);
+  }
+
+  if (document.getElementById('new-task-text')) {
+    document.getElementById('new-task-text').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('add-task-form').requestSubmit();
+      }
+    });
+  }
+
+  restoreSidebarSections('sec-todo');
+  loadLists();
+</script>
+{% endblock %}

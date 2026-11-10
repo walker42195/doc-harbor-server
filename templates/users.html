@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}doc-harbor - Användarhantering{% endblock %}
+{% block content %}
+<div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+  
+  <!-- Användarlista -->
+  <div style="flex: 2; min-width: 300px; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+    <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text);">Registrerade användare</h3>
+    
+    {% if success %}
+      <div style="background: #dafbe1; color: #1a7f37; border: 1px solid rgba(26,127,55,0.15); padding: 0.75rem; border-radius: 6px; margin-bottom: 1.25rem; font-size: 0.85rem;">
+        {{ success }}
+      </div>
+    {% endif %}
+    {% if error %}
+      <div style="background: #ffebe9; color: #cf222e; border: 1px solid rgba(207,34,46,0.15); padding: 0.75rem; border-radius: 6px; margin-bottom: 1.25rem; font-size: 0.85rem;">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--border); font-weight: 600;">
+          <th style="padding: 0.5rem;">Användarnamn</th>
+          <th style="padding: 0.5rem;">Behörighet</th>
+          <th style="padding: 0.5rem; text-align: right;">Handlingar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.75rem 0.5rem; font-weight: 500;">
+              {{ u.username }}
+              {% if u.username == request.username %}
+                <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">(Du)</span>
+              {% endif %}
+            </td>
+            <td style="padding: 0.75rem 0.5rem;">
+              {% if u.username == request.username %}
+                {% if u.role == 'admin' %}
+                  <span style="background: #ddf4ff; color: #0969da; padding: 0.15rem 0.4rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">Admin</span>
+                {% elif u.role == 'read-write' %}
+                  <span style="background: #dafbe1; color: #1a7f37; padding: 0.15rem 0.4rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">Läsa + Skriva</span>
+                {% else %}
+                  <span style="background: #f6f8fa; color: var(--text-muted); border: 1px solid var(--border); padding: 0.15rem 0.4rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">Endast Läsa</span>
+                {% endif %}
+              {% else %}
+                <form action="/users/update-role" method="POST" style="display: inline-block;">
+                  <input type="hidden" name="username" value="{{ u.username }}">
+                  <select name="role" onchange="this.form.submit()" style="padding: 0.2rem 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: var(--surface); color: var(--text);">
+                    <option value="read-only" {% if u.role == 'read-only' %}selected{% endif %}>Endast Läsa</option>
+                    <option value="read-write" {% if u.role == 'read-write' %}selected{% endif %}>Läsa + Skriva</option>
+                    <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+                  </select>
+                </form>
+              {% endif %}
+            </td>
+            <td style="padding: 0.75rem 0.5rem; text-align: right;">
+              {% if u.username != request.username %}
+                <form action="/users/delete" method="POST" style="display: inline;" onsubmit='return confirm({{ ("Är du säker på att du vill ta bort användaren " ~ u.username ~ "?")|tojson }});'>
+                  <input type="hidden" name="username" value="{{ u.username }}">
+                  <button class="btn" style="color: #cf222e; border-color: rgba(207,34,46,0.15); padding: 0.2rem 0.5rem; font-size: 0.75rem;" type="submit">Ta bort</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    
+    <div style="margin-top: 1.5rem;">
+      <a class="btn" href="/">Tillbaka till filer</a>
+    </div>
+  </div>
+
+  <!-- Skapa Användare & Ändra Lösenord -->
+  <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 1.5rem;">
+    
+    <!-- Skapa ny användare -->
+    <div style="background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+      <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text);">Skapa ny användare</h3>
+      <form action="/users/create" method="POST">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="new_username">Användarnamn</label>
+          <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="text" id="new_username" name="username" required placeholder="t.ex. kalle">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="new_password">Lösenord</label>
+          <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="password" id="new_password" name="password" required placeholder="Lösenord">
+        </div>
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="new_role">Behörighet</label>
+          <select style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--surface);" id="new_role" name="role" required>
+            <option value="read-only">Endast Läsa</option>
+            <option value="read-write">Läsa + Skriva</option>
+            <option value="admin">Administratör (Admin)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.5rem;" type="submit">Skapa konto</button>
+      </form>
+    </div>
+
+    <!-- Ändra eget lösenord -->
+    <div style="background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+      <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text);">Ändra ditt lösenord</h3>
+      <form action="/users/change-password" method="POST">
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="current_user_password">Nytt lösenord</label>
+          <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="password" id="current_user_password" name="password" required placeholder="Skriv in nytt lösenord">
+        </div>
+        <button class="btn" style="width: 100%; justify-content: center; padding: 0.5rem; border-color: var(--accent); color: var(--accent);" type="submit">Uppdatera lösenord</button>
+      </form>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

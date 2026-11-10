@@ -1,0 +1,1456 @@
+{% extends "base.html" %}
+{% block title %}doc-harbor - Kanban{% endblock %}
+
+{% block extra_css %}
+/* Full Screen Responsiveness */
+main {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 1rem 1.5rem !important;
+  box-sizing: border-box;
+}
+
+.app-container {
+  display: flex;
+  gap: 1.25rem;
+  width: 100%;
+  min-height: calc(100vh - 7.5rem);
+}
+
+/* Sidebar Navigation */
+.app-sidebar {
+  width: 280px;
+  min-width: 280px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 7.5rem);
+}
+
+.sidebar-section {
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.sidebar-section-header:hover {
+  background: var(--hover-bg);
+}
+
+.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-toggle-arrow {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  width: 14px;
+  display: inline-block;
+  text-align: center;
+}
+
+.sidebar-section-body {
+  display: none; /* COLLAPSED BY DEFAULT */
+  padding-left: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.sidebar-section-body.expanded {
+  display: block !important;
+}
+
+.sidebar-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 0.15rem;
+}
+
+.sidebar-list-item:hover {
+  background: var(--hover-bg);
+}
+
+.sidebar-list-item.active {
+  background: var(--active-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-item-actions {
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.sidebar-list-item:hover .sidebar-item-actions {
+  opacity: 1;
+}
+
+.sidebar-btn-icon {
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.sidebar-btn-icon:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text);
+}
+
+.sidebar-btn-icon.danger:hover {
+  color: #cf222e;
+}
+
+.quick-add-form {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  padding: 0 0.25rem;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.82rem;
+  background: var(--bg);
+  color: var(--text);
+  min-width: 0;
+}
+
+.quick-add-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Main Kanban Workspace - Dynamic Width & Height */
+.kanban-main {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.kanban-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kanban-title-area h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.kanban-board-container {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  flex: 1;
+  width: 100%;
+  padding-bottom: 0.75rem;
+  align-items: flex-start;
+}
+
+/* Kanban Columns */
+.kanban-column {
+  width: 300px;
+  min-width: 280px;
+  max-width: 320px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 15rem);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  flex-shrink: 0;
+}
+
+.column-header {
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: grab;
+  user-select: none;
+}
+
+.column-header:active {
+  cursor: grabbing;
+}
+
+.column-drag-handle {
+  cursor: grab;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.column-drag-handle:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.column-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.column-title-text {
+  cursor: pointer;
+}
+
+.card-count-badge {
+  background: var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.kanban-column.column-dragging {
+  opacity: 0.35;
+  border: 2px dashed var(--accent);
+}
+
+.column-drop-placeholder {
+  width: 300px;
+  min-width: 280px;
+  max-width: 320px;
+  min-height: 200px;
+  background: var(--hover-bg);
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+}
+
+.card-drop-placeholder {
+  min-height: 52px;
+  background: var(--hover-bg);
+  border: 2px dashed var(--accent);
+  border-radius: 6px;
+  pointer-events: none;
+  transition: all 0.15s ease;
+}
+
+.cards-container {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  flex-grow: 1;
+  min-height: 80px;
+  transition: background-color 0.2s ease;
+}
+
+.cards-container.drag-over {
+  background: var(--hover-bg);
+  border: 2px dashed var(--accent);
+  border-radius: 6px;
+}
+
+/* Kanban Cards */
+.kanban-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  user-select: none;
+  touch-action: none;
+  position: relative;
+}
+
+.kanban-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+.kanban-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+}
+
+.card-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.card-description {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 0.5rem;
+  gap: 0.4rem;
+}
+
+.card-action-btn {
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.card-action-btn:hover {
+  opacity: 1;
+  background: var(--hover-bg);
+}
+
+.add-card-btn {
+  margin: 0.5rem 0.75rem 0.75rem 0.75rem;
+  padding: 0.45rem;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.add-card-btn:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Modals */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 90vw;
+  max-width: 920px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+/* Touch Float Element */
+.touch-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.9;
+  transform: scale(1.03) rotate(2deg);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+  width: 280px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  
+  <!-- Left Sidebar Navigation -->
+  <aside class="app-sidebar">
+    
+    <!-- Section 1: Filträd -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">
+        <div class="sidebar-section-title">
+          <span class="sidebar-toggle-arrow" id="arrow-sec-tree" onclick="toggleSidebarSection('sec-tree')">►</span>
+          <span onclick="window.location.href='/browse/'" style="cursor:pointer;flex:1;">⚓ Filträd</span>
+        </div>
+      </div>
+      <div class="sidebar-section-body" id="sec-tree">
+        <div id="sidebar-folder-tree">
+          <p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Laddar...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Att-göra-listor -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">
+        <div class="sidebar-section-title">
+          <span class="sidebar-toggle-arrow" id="arrow-sec-todo" onclick="toggleSidebarSection('sec-todo')">►</span>
+          <span onclick="window.location.href='/todo'" style="cursor:pointer;flex:1;">📝 Att-göra-listor</span>
+        </div>
+      </div>
+      <div class="sidebar-section-body" id="sec-todo">
+        <div id="sidebar-todo-list">
+          <p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Laddar...</p>
+        </div>
+        {% if request.user_role != 'read-only' %}
+        <form class="quick-add-form" onsubmit="createTodoFromSidebar(event)">
+          <input type="text" class="quick-add-input" id="sidebar-new-todo" placeholder="+ Ny Todo-lista..." required>
+          <button class="btn btn-primary" type="submit" style="padding:0.2rem 0.5rem;font-size:0.8rem;">+</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Section 3: Kanban -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">
+        <div class="sidebar-section-title">
+          <span class="sidebar-toggle-arrow" id="arrow-sec-kanban" onclick="toggleSidebarSection('sec-kanban')">►</span>
+          <span onclick="window.location.href='/kanban'" style="cursor:pointer;flex:1;">📋 Kanban</span>
+        </div>
+      </div>
+      <div class="sidebar-section-body" id="sec-kanban">
+        <div id="sidebar-kanban-list">
+          <p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Laddar...</p>
+        </div>
+        {% if request.user_role != 'read-only' %}
+        <form class="quick-add-form" onsubmit="createKanbanFromSidebar(event)">
+          <input type="text" class="quick-add-input" id="sidebar-new-kanban" placeholder="+ Ny Kanban-tavla..." required>
+          <button class="btn btn-primary" type="submit" style="padding:0.2rem 0.5rem;font-size:0.8rem;">+</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Main Kanban Workspace -->
+  <main class="kanban-main">
+    <div class="kanban-topbar">
+      <div class="kanban-title-area">
+        <h2 id="board-title-display">Laddar tavla...</h2>
+        {% if request.user_role != 'read-only' %}
+        <button class="sidebar-btn-icon" onclick="promptRenameBoard()" title="Döp om tavla" style="font-size:1rem;padding:4px 8px;">✏️</button>
+        {% endif %}
+      </div>
+      
+      {% if request.user_role != 'read-only' %}
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="btn btn-primary" onclick="promptAddColumn()">+ Ny kolumn</button>
+        <button class="btn" onclick="deleteActiveBoard()" style="color:#cf222e;border-color:rgba(207,34,46,0.2);">Ta bort tavla</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Kanban Board Columns Container -->
+    <div class="kanban-board-container" id="board-columns-container">
+      <!-- Columns rendered via JS -->
+    </div>
+  </main>
+
+</div>
+
+<!-- Modal: Card Editor -->
+<div id="card-modal" class="modal-backdrop" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-title" id="card-modal-title">Redigera kort</div>
+    <div style="display:flex;flex-direction:column;gap:0.85rem;flex:1;min-height:0;overflow-y:auto;">
+      <label style="font-size:0.9rem;font-weight:600;color:var(--text);">Titel</label>
+      <input type="text" id="modal-card-title" class="quick-add-input" style="font-size:1rem;padding:0.6rem;" placeholder="Kortets rubrik...">
+      <label style="font-size:0.9rem;font-weight:600;color:var(--text);">Beskrivning</label>
+      <textarea id="modal-card-desc" class="quick-add-input" rows="12" style="font-size:0.95rem;padding:0.75rem;resize:vertical;min-height:280px;height:40vh;flex-grow:1;line-height:1.5;" placeholder="Detaljerad beskrivning..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeCardModal()">Avbryt</button>
+      <button class="btn btn-primary" onclick="saveCardFromModal()">Spara</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeBoardName = '';
+  let boardData = { title: '', columns: [] };
+  let editingCardRef = null;
+  let isReadOnly = {{ 'true' if request.user_role == 'read-only' else 'false' }};
+  let currentDragType = null; // 'card' or 'column'
+  let draggedCardInfo = null; // { cardId, sourceColId }
+  let draggedColId = null; // column id
+
+  // Section Toggle Function (Fälla in/ut)
+  function toggleSidebarSection(secId) {
+    const body = document.getElementById(secId);
+    const arrow = document.getElementById('arrow-' + secId);
+    if (!body) return;
+
+    const isExpanded = body.classList.toggle('expanded');
+    if (arrow) {
+      arrow.textContent = isExpanded ? '▼' : '►';
+    }
+    try {
+      localStorage.setItem('sidebar_sec_' + secId, isExpanded ? 'open' : 'closed');
+    } catch (_) {}
+  }
+
+  function restoreSidebarSections(defaultActiveSecId) {
+    const sections = ['sec-tree', 'sec-todo', 'sec-kanban', 'sec-groups'];
+    sections.forEach(secId => {
+      const body = document.getElementById(secId);
+      const arrow = document.getElementById('arrow-' + secId);
+      if (!body) return;
+
+      const saved = localStorage.getItem('sidebar_sec_' + secId);
+      let shouldOpen = false;
+      if (saved === 'open') {
+        shouldOpen = true;
+      } else if (saved === 'closed') {
+        shouldOpen = false;
+      } else if (secId === defaultActiveSecId) {
+        shouldOpen = true;
+      }
+
+      if (shouldOpen) {
+        body.classList.add('expanded');
+        if (arrow) arrow.textContent = '▼';
+      } else {
+        body.classList.remove('expanded');
+        if (arrow) arrow.textContent = '►';
+      }
+    });
+  }
+
+  // Sidebar Loading
+  async function loadSidebarLists() {
+    // Load Folder tree in sidebar
+    try {
+      const res = await fetch('/api/browse');
+      const data = await res.json();
+      const container = document.getElementById('sidebar-folder-tree');
+      if (container) {
+        container.innerHTML = '';
+        const dirs = (data.entries || []).filter(e => e.is_dir);
+        if (dirs.length === 0) {
+          container.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted);padding:0.2rem 0.5rem;">Inga mappar</p>';
+        } else {
+          dirs.forEach(dir => {
+            const item = document.createElement('div');
+            item.className = 'sidebar-list-item';
+            item.innerHTML = `<span onclick="window.location.href='/browse/${encodeURIComponent(dir.rel)}'">📁 ${dir.name}</span>`;
+            container.appendChild(item);
+          });
+        }
+      }
+    } catch(e) { console.error(e); }
+
+    // Load Todos in sidebar
+    try {
+      const res = await fetch('/api/todo');
+      const data = await res.json();
+      const container = document.getElementById('sidebar-todo-list');
+      container.innerHTML = '';
+      (data.lists || []).forEach(name => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-list-item';
+        item.innerHTML = `
+          <span onclick="window.location.href='/todo?list=${encodeURIComponent(name)}'">📝 ${name}</span>
+          ${!isReadOnly ? `
+          <div class="sidebar-item-actions">
+            <button class="sidebar-btn-icon" onclick="renameTodoFromSidebar(event, '${name}')" title="Döp om">✏️</button>
+          </div>` : ''}
+        `;
+        container.appendChild(item);
+      });
+    } catch(e) { console.error(e); }
+
+    // Load Kanban in sidebar
+    try {
+      const res = await fetch('/api/kanban');
+      const data = await res.json();
+      const container = document.getElementById('sidebar-kanban-list');
+      container.innerHTML = '';
+      const boards = data.boards || [];
+      boards.forEach(name => {
+        const item = document.createElement('div');
+        item.className = `sidebar-list-item${name === activeBoardName ? ' active' : ''}`;
+        item.innerHTML = `
+          <span onclick="selectBoard('${name}')" style="flex:1;">📋 ${name}</span>
+          ${!isReadOnly ? `
+          <div class="sidebar-item-actions">
+            <button class="sidebar-btn-icon" onclick="renameKanbanFromSidebar(event, '${name}')" title="Döp om">✏️</button>
+            <button class="sidebar-btn-icon danger" onclick="deleteKanbanFromSidebar(event, '${name}')" title="Radera">&times;</button>
+          </div>` : ''}
+        `;
+        container.appendChild(item);
+      });
+
+      // Handle initial board selection from URL query, localStorage or first board
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramBoard = urlParams.get('board');
+      let savedBoard = null;
+      try { savedBoard = localStorage.getItem('doc_harbor_last_kanban_board'); } catch (_) {}
+      if (paramBoard && boards.includes(paramBoard)) {
+        selectBoard(paramBoard);
+      } else if (savedBoard && boards.includes(savedBoard)) {
+        selectBoard(savedBoard);
+      } else if (boards.length > 0 && !activeBoardName) {
+        selectBoard(boards[0]);
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  async function createTodoFromSidebar(e) {
+    e.preventDefault();
+    const input = document.getElementById('sidebar-new-todo');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/todo/create', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        input.value = '';
+        window.location.href = `/todo?list=${encodeURIComponent(data.name)}`;
+      } else alert(data.error || 'Fel');
+    } catch(err) { alert('Nätverksfel'); }
+  }
+
+  async function renameTodoFromSidebar(e, oldName) {
+    e.stopPropagation();
+    const newName = prompt(`Döp om Todo-listan "${oldName}" till:`, oldName);
+    if (!newName || newName.trim() === oldName) return;
+    try {
+      const res = await fetch(`/api/todo/${encodeURIComponent(oldName)}/rename`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ new_name: newName.trim() })
+      });
+      const data = await res.json();
+      if (data.success) loadSidebarLists();
+      else alert(data.error || 'Kunde inte döpa om');
+    } catch(err) { alert('Nätverksfel'); }
+  }
+
+  async function createKanbanFromSidebar(e) {
+    e.preventDefault();
+    const input = document.getElementById('sidebar-new-kanban');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/kanban/create', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        input.value = '';
+        await loadSidebarLists();
+        selectBoard(data.name);
+      } else alert(data.error || 'Fel');
+    } catch(err) { alert('Nätverksfel'); }
+  }
+
+  async function renameKanbanFromSidebar(e, oldName) {
+    e.stopPropagation();
+    const newName = prompt(`Döp om Kanban-tavlan "${oldName}" till:`, oldName);
+    if (!newName || newName.trim() === oldName) return;
+    try {
+      const res = await fetch(`/api/kanban/${encodeURIComponent(oldName)}/rename`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ new_name: newName.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (activeBoardName === oldName) activeBoardName = data.name;
+        await loadSidebarLists();
+      } else alert(data.error || 'Kunde inte döpa om');
+    } catch(err) { alert('Nätverksfel'); }
+  }
+
+  async function deleteKanbanFromSidebar(e, name) {
+    e.stopPropagation();
+    if (!confirm(`Vill du radera Kanban-tavlan "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/kanban/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        if (activeBoardName === name) activeBoardName = '';
+        await loadSidebarLists();
+      } else alert(data.error || 'Fel');
+    } catch(err) { alert('Nätverksfel'); }
+  }
+
+  async function selectBoard(name) {
+    activeBoardName = name;
+    try { localStorage.setItem('doc_harbor_last_kanban_board', name); } catch (_) {}
+    history.replaceState(null, '', `/kanban?board=${encodeURIComponent(name)}`);
+    document.querySelectorAll('#sidebar-kanban-list .sidebar-list-item').forEach(el => {
+      if (el.textContent.includes(name)) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+    document.getElementById('board-title-display').textContent = name;
+    await loadBoard(name);
+  }
+
+  async function loadBoard(name) {
+    try {
+      const res = await fetch(`/api/kanban/${encodeURIComponent(name)}`);
+      if (!res.ok) throw new Error('Board not found');
+      boardData = await res.json();
+      renderBoard();
+    } catch(e) {
+      console.error(e);
+      document.getElementById('board-columns-container').innerHTML = `<p style="color:#cf222e;padding:1rem;">Kunde inte ladda tavlan.</p>`;
+    }
+  }
+
+  async function saveBoard() {
+    if (!activeBoardName || isReadOnly) return;
+    try {
+      await fetch(`/api/kanban/${encodeURIComponent(activeBoardName)}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(boardData)
+      });
+    } catch(e) { console.error('Error saving board:', e); }
+  }
+
+  // Placeholders & Helper Functions for Drag & Drop
+  function getOrCreateCardPlaceholder() {
+    let ph = document.getElementById('card-drag-placeholder');
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.id = 'card-drag-placeholder';
+      ph.className = 'card-drop-placeholder';
+    }
+    return ph;
+  }
+
+  function removeCardDropPlaceholders() {
+    const ph = document.getElementById('card-drag-placeholder');
+    if (ph) ph.remove();
+  }
+
+  function getOrCreateColumnPlaceholder() {
+    let ph = document.getElementById('column-drag-placeholder');
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.id = 'column-drag-placeholder';
+      ph.className = 'column-drop-placeholder';
+    }
+    return ph;
+  }
+
+  function removeColumnDropPlaceholders() {
+    const ph = document.getElementById('column-drag-placeholder');
+    if (ph) ph.remove();
+  }
+
+  function getDragAfterCard(container, y) {
+    const cards = [...container.querySelectorAll('.kanban-card:not(.dragging)')];
+    return cards.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  function getDragAfterColumn(container, x) {
+    const columns = [...container.querySelectorAll('.kanban-column:not(.column-dragging)')];
+    return columns.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = x - box.left - box.width / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  // Render Kanban Board
+  function renderBoard() {
+    const container = document.getElementById('board-columns-container');
+    container.innerHTML = '';
+
+    if (!boardData.columns) boardData.columns = [];
+
+    if (!isReadOnly) {
+      setupColumnDropZone(container);
+    }
+
+    boardData.columns.forEach((col, colIndex) => {
+      const colEl = document.createElement('div');
+      colEl.className = 'kanban-column';
+      colEl.dataset.colId = col.id;
+
+      colEl.innerHTML = `
+        <div class="column-header" ${!isReadOnly ? 'draggable="true"' : ''}>
+          <div class="column-title">
+            ${!isReadOnly ? '<span class="column-drag-handle" title="Dra för att flytta kolumn">⠿</span>' : ''}
+            <span class="column-title-text" onclick="${!isReadOnly ? `renameColumn(${colIndex})` : ''}">${escapeHtml(col.title)}</span>
+            <span class="card-count-badge">${col.cards ? col.cards.length : 0}</span>
+          </div>
+          ${!isReadOnly ? `
+          <button class="sidebar-btn-icon danger" onclick="deleteColumn(${colIndex})" title="Ta bort kolumn" draggable="false">&times;</button>
+          ` : ''}
+        </div>
+        <div class="cards-container" data-col-id="${col.id}"></div>
+        ${!isReadOnly ? `
+        <button class="add-card-btn" onclick="openAddCardModal('${col.id}')">+ Lägg till kort</button>
+        ` : ''}
+      `;
+
+      if (!isReadOnly) {
+        setupColumnDrag(colEl, col.id);
+      }
+
+      const cardsContainer = colEl.querySelector('.cards-container');
+      setupDropZone(cardsContainer, col.id);
+
+      (col.cards || []).forEach((card, cardIndex) => {
+        const cardEl = createCardElement(card, col.id, cardIndex);
+        cardsContainer.appendChild(cardEl);
+      });
+
+      container.appendChild(colEl);
+    });
+  }
+
+  // Column Drag and Drop
+  function setupColumnDrag(colEl, colId) {
+    const header = colEl.querySelector('.column-header');
+    if (!header) return;
+
+    header.addEventListener('dragstart', (e) => {
+      if (e.target.closest('.sidebar-btn-icon')) {
+        e.preventDefault();
+        return;
+      }
+      currentDragType = 'column';
+      draggedColId = colId;
+      e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'column', colId }));
+      e.dataTransfer.effectAllowed = 'move';
+      colEl.classList.add('column-dragging');
+    });
+
+    header.addEventListener('dragend', () => {
+      colEl.classList.remove('column-dragging');
+      currentDragType = null;
+      draggedColId = null;
+      removeColumnDropPlaceholders();
+    });
+
+    const handle = colEl.querySelector('.column-drag-handle');
+    if (handle) {
+      setupColumnTouchDrag(colEl, handle, colId);
+    }
+  }
+
+  function setupColumnDropZone(container) {
+    container.addEventListener('dragover', (e) => {
+      if (currentDragType !== 'column' && !draggedColId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      const afterCol = getDragAfterColumn(container, e.clientX);
+      const ph = getOrCreateColumnPlaceholder();
+      if (afterCol) {
+        container.insertBefore(ph, afterCol);
+      } else {
+        container.appendChild(ph);
+      }
+    });
+
+    container.addEventListener('dragleave', (e) => {
+      if (!container.contains(e.relatedTarget)) {
+        removeColumnDropPlaceholders();
+      }
+    });
+
+    container.addEventListener('drop', (e) => {
+      if (currentDragType !== 'column' && !draggedColId) return;
+      e.preventDefault();
+
+      let targetIndex = boardData.columns.length;
+      const afterCol = getDragAfterColumn(container, e.clientX);
+      if (afterCol) {
+        const afterColId = afterCol.dataset.colId;
+        const foundIdx = boardData.columns.findIndex(c => c.id === afterColId);
+        if (foundIdx !== -1) targetIndex = foundIdx;
+      }
+
+      removeColumnDropPlaceholders();
+      if (draggedColId) {
+        moveColumn(draggedColId, targetIndex);
+      }
+    });
+  }
+
+  function moveColumn(colId, targetIndex) {
+    const colIndex = boardData.columns.findIndex(c => c.id === colId);
+    if (colIndex === -1) return;
+
+    const [col] = boardData.columns.splice(colIndex, 1);
+    if (targetIndex !== undefined && targetIndex !== null && targetIndex >= 0) {
+      if (colIndex < targetIndex) {
+        targetIndex = targetIndex - 1;
+      }
+      boardData.columns.splice(targetIndex, 0, col);
+    } else {
+      boardData.columns.push(col);
+    }
+
+    renderBoard();
+    saveBoard();
+  }
+
+  // Touch Column Dragging
+  let touchColGhost = null;
+  let activeTouchColumn = null;
+
+  function setupColumnTouchDrag(colEl, handle, colId) {
+    let touchStartX = 0, touchStartY = 0;
+    let isTouchDragging = false;
+
+    handle.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      activeTouchColumn = { colId, colEl };
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', (e) => {
+      if (!activeTouchColumn) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+
+      if (!isTouchDragging && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        isTouchDragging = true;
+        currentDragType = 'column';
+        colEl.classList.add('column-dragging');
+
+        touchColGhost = document.createElement('div');
+        touchColGhost.className = 'touch-drag-ghost';
+        const colTitle = colEl.querySelector('.column-title-text')?.textContent || 'Kolumn';
+        touchColGhost.innerHTML = `<strong>📋 ${escapeHtml(colTitle)}</strong>`;
+        document.body.appendChild(touchColGhost);
+      }
+
+      if (isTouchDragging && touchColGhost) {
+        e.preventDefault();
+        touchColGhost.style.left = (touch.clientX - 100) + 'px';
+        touchColGhost.style.top = (touch.clientY - 30) + 'px';
+
+        const boardContainer = document.getElementById('board-columns-container');
+        if (boardContainer) {
+          const afterCol = getDragAfterColumn(boardContainer, touch.clientX);
+          const ph = getOrCreateColumnPlaceholder();
+          if (afterCol) {
+            boardContainer.insertBefore(ph, afterCol);
+          } else {
+            boardContainer.appendChild(ph);
+          }
+        }
+      }
+    }, { passive: false });
+
+    const endTouchColumn = (e) => {
+      if (isTouchDragging && touchColGhost && activeTouchColumn) {
+        const touch = e.changedTouches ? e.changedTouches[0] : (e.touches ? e.touches[0] : null);
+        const boardContainer = document.getElementById('board-columns-container');
+        if (boardContainer && touch) {
+          const afterCol = getDragAfterColumn(boardContainer, touch.clientX);
+          let targetIndex = boardData.columns.length;
+          if (afterCol) {
+            const foundIdx = boardData.columns.findIndex(c => c.id === afterCol.dataset.colId);
+            if (foundIdx !== -1) targetIndex = foundIdx;
+          }
+          moveColumn(activeTouchColumn.colId, targetIndex);
+        }
+      }
+
+      removeColumnDropPlaceholders();
+      if (touchColGhost) {
+        touchColGhost.remove();
+        touchColGhost = null;
+      }
+      colEl.classList.remove('column-dragging');
+      isTouchDragging = false;
+      activeTouchColumn = null;
+      currentDragType = null;
+    };
+
+    handle.addEventListener('touchend', endTouchColumn);
+    handle.addEventListener('touchcancel', endTouchColumn);
+  }
+
+  // Card Drag and Drop
+  function createCardElement(card, colId, cardIndex) {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'kanban-card';
+    cardEl.draggable = !isReadOnly;
+    cardEl.dataset.cardId = card.id;
+    cardEl.dataset.colId = colId;
+
+    cardEl.innerHTML = `
+      <div class="card-title">${escapeHtml(card.title)}</div>
+      ${card.description ? `<div class="card-description">${escapeHtml(card.description)}</div>` : ''}
+      ${!isReadOnly ? `
+      <div class="card-footer">
+        <button class="card-action-btn" onclick="openEditCardModal('${colId}', '${card.id}')">✏️</button>
+        <button class="card-action-btn" onclick="deleteCard('${colId}', '${card.id}')" style="color:#cf222e;">&times;</button>
+      </div>` : ''}
+    `;
+
+    if (!isReadOnly) {
+      // Mouse Drag & Drop
+      cardEl.addEventListener('dragstart', (e) => {
+        currentDragType = 'card';
+        draggedCardInfo = { cardId: card.id, sourceColId: colId };
+        e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'card', cardId: card.id, sourceColId: colId }));
+        e.dataTransfer.effectAllowed = 'move';
+        cardEl.classList.add('dragging');
+      });
+
+      cardEl.addEventListener('dragend', () => {
+        cardEl.classList.remove('dragging');
+        currentDragType = null;
+        draggedCardInfo = null;
+        removeCardDropPlaceholders();
+        document.querySelectorAll('.cards-container').forEach(c => c.classList.remove('drag-over'));
+      });
+
+      // Touch Drag & Drop
+      setupTouchDrag(cardEl, card, colId);
+    }
+
+    return cardEl;
+  }
+
+  function setupDropZone(cardsContainer, colId) {
+    cardsContainer.addEventListener('dragover', (e) => {
+      if (currentDragType && currentDragType !== 'card') return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      cardsContainer.classList.add('drag-over');
+
+      const afterCard = getDragAfterCard(cardsContainer, e.clientY);
+      const ph = getOrCreateCardPlaceholder();
+      if (afterCard) {
+        cardsContainer.insertBefore(ph, afterCard);
+      } else {
+        cardsContainer.appendChild(ph);
+      }
+    });
+
+    cardsContainer.addEventListener('dragleave', (e) => {
+      if (!cardsContainer.contains(e.relatedTarget)) {
+        cardsContainer.classList.remove('drag-over');
+      }
+    });
+
+    cardsContainer.addEventListener('drop', (e) => {
+      if (currentDragType && currentDragType !== 'card') return;
+      e.preventDefault();
+      e.stopPropagation();
+      cardsContainer.classList.remove('drag-over');
+
+      const rawData = e.dataTransfer.getData('text/plain');
+      let cardId = null;
+      let sourceColId = null;
+      if (rawData) {
+        try {
+          const parsed = JSON.parse(rawData);
+          if (parsed.cardId) {
+            cardId = parsed.cardId;
+            sourceColId = parsed.sourceColId;
+          }
+        } catch (_) {}
+      }
+      if (!cardId && draggedCardInfo) {
+        cardId = draggedCardInfo.cardId;
+        sourceColId = draggedCardInfo.sourceColId;
+      }
+      if (!cardId || !sourceColId) {
+        removeCardDropPlaceholders();
+        return;
+      }
+
+      const targetCol = boardData.columns.find(c => c.id === colId);
+      if (!targetCol) {
+        removeCardDropPlaceholders();
+        return;
+      }
+
+      const afterCard = getDragAfterCard(cardsContainer, e.clientY);
+      let targetIndex = targetCol.cards ? targetCol.cards.length : 0;
+      if (afterCard) {
+        const afterCardId = afterCard.dataset.cardId;
+        const foundIdx = targetCol.cards.findIndex(c => c.id === afterCardId);
+        if (foundIdx !== -1) {
+          targetIndex = foundIdx;
+        }
+      }
+
+      removeCardDropPlaceholders();
+      moveCard(cardId, sourceColId, colId, targetIndex);
+    });
+  }
+
+  // Touch Drag & Drop Implementation
+  let touchGhost = null;
+  let activeTouchCard = null;
+
+  function setupTouchDrag(cardEl, card, sourceColId) {
+    let touchStartX = 0, touchStartY = 0;
+    let isTouchDragging = false;
+
+    cardEl.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      activeTouchCard = { cardId: card.id, sourceColId };
+    }, { passive: true });
+
+    cardEl.addEventListener('touchmove', (e) => {
+      if (!activeTouchCard) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+
+      if (!isTouchDragging && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        isTouchDragging = true;
+        currentDragType = 'card';
+        cardEl.classList.add('dragging');
+        
+        touchGhost = cardEl.cloneNode(true);
+        touchGhost.className = 'touch-drag-ghost';
+        document.body.appendChild(touchGhost);
+      }
+
+      if (isTouchDragging && touchGhost) {
+        e.preventDefault();
+        touchGhost.style.left = (touch.clientX - 140) + 'px';
+        touchGhost.style.top = (touch.clientY - 30) + 'px';
+
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        document.querySelectorAll('.cards-container').forEach(c => c.classList.remove('drag-over'));
+        removeCardDropPlaceholders();
+
+        if (targetEl) {
+          const container = targetEl.closest('.cards-container');
+          if (container) {
+            container.classList.add('drag-over');
+            const afterCard = getDragAfterCard(container, touch.clientY);
+            const ph = getOrCreateCardPlaceholder();
+            if (afterCard) {
+              container.insertBefore(ph, afterCard);
+            } else {
+              container.appendChild(ph);
+            }
+          }
+        }
+      }
+    }, { passive: false });
+
+    cardEl.addEventListener('touchend', (e) => {
+      if (isTouchDragging && touchGhost && activeTouchCard) {
+        const touch = e.changedTouches[0];
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (targetEl) {
+          const container = targetEl.closest('.cards-container');
+          if (container) {
+            const targetColId = container.dataset.colId;
+            const targetCol = boardData.columns.find(c => c.id === targetColId);
+            let targetIndex = targetCol && targetCol.cards ? targetCol.cards.length : 0;
+            const afterCard = getDragAfterCard(container, touch.clientY);
+            if (afterCard && targetCol) {
+              const foundIdx = targetCol.cards.findIndex(c => c.id === afterCard.dataset.cardId);
+              if (foundIdx !== -1) targetIndex = foundIdx;
+            }
+            moveCard(activeTouchCard.cardId, activeTouchCard.sourceColId, targetColId, targetIndex);
+          }
+        }
+      }
+
+      removeCardDropPlaceholders();
+      if (touchGhost) {
+        touchGhost.remove();
+        touchGhost = null;
+      }
+      cardEl.classList.remove('dragging');
+      document.querySelectorAll('.cards-container').forEach(c => c.classList.remove('drag-over'));
+      isTouchDragging = false;
+      activeTouchCard = null;
+      currentDragType = null;
+    });
+
+    cardEl.addEventListener('touchcancel', () => {
+      removeCardDropPlaceholders();
+      if (touchGhost) {
+        touchGhost.remove();
+        touchGhost = null;
+      }
+      cardEl.classList.remove('dragging');
+      document.querySelectorAll('.cards-container').forEach(c => c.classList.remove('drag-over'));
+      isTouchDragging = false;
+      activeTouchCard = null;
+      currentDragType = null;
+    });
+  }
+
+  function moveCard(cardId, sourceColId, targetColId, targetIndex) {
+    const sourceCol = boardData.columns.find(c => c.id === sourceColId);
+    const targetCol = boardData.columns.find(c => c.id === targetColId);
+    if (!sourceCol || !targetCol) return;
+
+    const cardIndex = sourceCol.cards.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    const [card] = sourceCol.cards.splice(cardIndex, 1);
+
+    if (sourceColId === targetColId) {
+      if (targetIndex !== undefined && targetIndex !== null && targetIndex >= 0) {
+        if (cardIndex < targetIndex) {
+          targetIndex = targetIndex - 1;
+        }
+        targetCol.cards.splice(targetIndex, 0, card);
+      } else {
+        targetCol.cards.push(card);
+      }
+    } else {
+      if (targetIndex !== undefined && targetIndex !== null && targetIndex >= 0) {
+        targetCol.cards.splice(targetIndex, 0, card);
+      } else {
+        targetCol.cards.push(card);
+      }
+    }
+
+    renderBoard();
+    saveBoard();
+  }
+
+  function promptAddColumn() {
+    const title = prompt('Ange namn på den nya kolumnen:');
+    if (!title || !title.trim()) return;
+    const newCol = {
+      id: 'col_' + Date.now(),
+      title: title.trim(),
+      cards: []
+    };
+    boardData.columns.push(newCol);
+    renderBoard();
+    saveBoard();
+  }
+
+  function renameColumn(colIndex) {
+    const col = boardData.columns[colIndex];
+    const newTitle = prompt('Ändra kolumnnamn:', col.title);
+    if (!newTitle || !newTitle.trim()) return;
+    col.title = newTitle.trim();
+    renderBoard();
+    saveBoard();
+  }
+
+  function deleteColumn(colIndex) {
+    const col = boardData.columns[colIndex];
+    if (!confirm(`Är du säker på att du vill radera kolumnen "${col.title}" och alla dess kort?`)) return;
+    boardData.columns.splice(colIndex, 1);
+    renderBoard();
+    saveBoard();
+  }
+
+  function openAddCardModal(colId) {
+    editingCardRef = { colId, cardId: null };
+    document.getElementById('card-modal-title').textContent = 'Nytt kort';
+    document.getElementById('modal-card-title').value = '';
+    document.getElementById('modal-card-desc').value = '';
+    document.getElementById('card-modal').style.display = 'flex';
+    document.getElementById('modal-card-title').focus();
+  }
+
+  function openEditCardModal(colId, cardId) {
+    const col = boardData.columns.find(c => c.id === colId);
+    if (!col) return;
+    const card = col.cards.find(c => c.id === cardId);
+    if (!card) return;
+
+    editingCardRef = { colId, cardId };
+    document.getElementById('card-modal-title').textContent = 'Redigera kort';
+    document.getElementById('modal-card-title').value = card.title;
+    document.getElementById('modal-card-desc').value = card.description || '';
+    document.getElementById('card-modal').style.display = 'flex';
+    document.getElementById('modal-card-title').focus();
+  }
+
+  function closeCardModal() {
+    document.getElementById('card-modal').style.display = 'none';
+    editingCardRef = null;
+  }
+
+  function saveCardFromModal() {
+    if (!editingCardRef) return;
+    const title = document.getElementById('modal-card-title').value.trim();
+    const desc = document.getElementById('modal-card-desc').value.trim();
+
+    if (!title) {
+      alert('Kortet måste ha en titel.');
+      return;
+    }
+
+    const col = boardData.columns.find(c => c.id === editingCardRef.colId);
+    if (!col) return;
+
+    if (editingCardRef.cardId) {
+      const card = col.cards.find(c => c.id === editingCardRef.cardId);
+      if (card) {
+        card.title = title;
+        card.description = desc;
+      }
+    } else {
+      col.cards.push({
+        id: 'card_' + Date.now(),
+        title: title,
+        description: desc
+      });
+    }
+
+    closeCardModal();
+    renderBoard();
+    saveBoard();
+  }
+
+  function deleteCard(colId, cardId) {
+    const col = boardData.columns.find(c => c.id === colId);
+    if (!col) return;
+    const idx = col.cards.findIndex(c => c.id === cardId);
+    if (idx !== -1) {
+      col.cards.splice(idx, 1);
+      renderBoard();
+      saveBoard();
+    }
+  }
+
+  function promptRenameBoard() {
+    if (!activeBoardName) return;
+    renameKanbanFromSidebar(new Event('click'), activeBoardName);
+  }
+
+  function deleteActiveBoard() {
+    if (!activeBoardName) return;
+    deleteKanbanFromSidebar(new Event('click'), activeBoardName);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  // Load sidebar data on startup
+  restoreSidebarSections('sec-kanban');
+  loadSidebarLists();
+</script>
+{% endblock %}

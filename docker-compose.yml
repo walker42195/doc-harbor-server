@@ -1,0 +1,19 @@
+# doc-harbor – självhostad dokumenthanterare
+# Snabbstart:  cp .env.example .env  →  fyll i SECRET_KEY  →  docker compose up -d
+# Öppna sedan http://<din-server>:8090/setup och välj lösenord för admin.
+services:
+  doc-harbor:
+    image: ghcr.io/walker42195/doc-harbor-server:latest
+    # Vill du bygga själv från källkoden: byt "image:" mot "build: ."
+    ports:
+      - "8090:8080"
+    volumes:
+      # Alla filer, att-göra-listor, Kanban-tavlor och databasen hamnar här.
+      - ./data:/projects
+    env_file: .env
+    environment:
+      - PROJECTS_ROOT=/projects
+    # Behövs bara om e-postservern körs på samma maskin (SMTP_HOST=host.docker.internal).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

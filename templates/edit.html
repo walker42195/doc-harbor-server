@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block title %}Redigera {{ rel.split('/')|last }} — doc-harbor{% endblock %}
+
+{% block extra_head %}
+{% if file_ext == '.html' %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+.edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.edit-title { font-size: 0.95rem; color: var(--text-muted); }
+.edit-title strong { color: var(--text); }
+.edit-actions { display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0; }
+.shortcut-hint { font-size: 0.78rem; color: var(--text-muted); }
+.shortcut-hint kbd {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.78rem;
+}
+
+/* ── Plain / code textarea ── */
+textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - 9rem);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+  tab-size: 2;
+}
+textarea:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.15); }
+
+/* ── Markdown toolbar ── */
+.md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0;
+}
+.md-toolbar button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: var(--text);
+  line-height: 1.4;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+.md-toolbar button:hover { background: #e8f0fe; border-color: #0969da; color: #0969da; }
+.md-toolbar .sep { width: 1px; background: var(--border); margin: 0.15rem 0.1rem; align-self: stretch; }
+
+/* ── Markdown Tabbed Layout ── */
+.md-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+.tab-btn:hover {
+  color: var(--text);
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.md-editor-container {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 12rem);
+}
+.md-pane {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+.md-pane textarea {
+  border-radius: 0 0 8px 8px;
+  min-height: calc(100vh - 15rem);
+  flex-grow: 1;
+  resize: vertical;
+}
+.md-preview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  flex-grow: 1;
+  min-height: calc(100vh - 12rem);
+}
+.md-preview h1 { font-size: 1.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin: 0 0 1rem; }
+.md-preview h2 { font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; margin: 1.5rem 0 0.75rem; }
+.md-preview h3 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; }
+.md-preview p  { margin: 0.75rem 0; }
+.md-preview ul, .md-preview ol { margin: 0.75rem 0 0.75rem 1.6rem; }
+.md-preview li { margin: 0.2rem 0; }
+.md-preview code { background: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.875em; }
+.md-preview pre { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+.md-preview pre code { background: none; padding: 0; }
+.md-preview blockquote { border-left: 4px solid var(--border); padding: 0.25rem 1rem; color: var(--text-muted); margin: 1rem 0; }
+.md-preview table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.md-preview th, .md-preview td { border: 1px solid var(--border); padding: 0.4rem 0.7rem; font-size: 0.9rem; }
+.md-preview th { background: var(--bg); font-weight: 600; }
+.md-preview a { color: var(--accent); }
+.md-preview hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+html.dark .md-preview code { background: #21262d; color: #ff7b72; }
+html.dark .md-preview pre { background: #161b22; }
+
+
+/* ── Quill rich editor ── */
+.ql-editor { min-height: calc(100vh - 14rem); font-size: 1rem; line-height: 1.7; }
+.ql-toolbar.ql-snow { border-radius: 8px 8px 0 0; border-color: var(--border); background: var(--bg); }
+.ql-container.ql-snow { border-radius: 0 0 8px 8px; border-color: var(--border); background: var(--surface); }
+.ql-font-serif    { font-family: Georgia, "Times New Roman", serif; }
+.ql-font-monospace { font-family: "SFMono-Regular", Consolas, monospace; }
+.ql-font-arial    { font-family: Arial, Helvetica, sans-serif; }
+.ql-font-times    { font-family: "Times New Roman", Times, serif; }
+.ql-font-georgia  { font-family: Georgia, serif; }
+{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('file.save_view', rel=rel) }}" id="edit-form">
+  <div class="edit-header">
+    <span class="edit-title">✏️ Redigerar <strong>{{ rel.split('/')|last }}</strong>
+      {% if file_ext == '.html' %}<span style="margin-left:0.5rem;font-size:0.78rem;background:#ddf4ff;color:#0969da;padding:0.1rem 0.5rem;border-radius:10px;">Rik text</span>{% endif %}
+      {% if file_ext == '.md' %}<span style="margin-left:0.5rem;font-size:0.78rem;background:#dafbe1;color:#1a7f37;padding:0.1rem 0.5rem;border-radius:10px;">Markdown + förhandsgranskning</span>{% endif %}
+    </span>
+    <div class="edit-actions">
+      <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>S</kbd> för att spara</span>
+      <button type="submit" class="btn btn-primary">💾 Spara</button>
+      {% if version_count %}
+      <a class="btn" href="{{ url_for('file.history_view', rel=rel) }}">🕓 Historik ({{ version_count }})</a>
+      {% endif %}
+      <a class="btn" href="{{ url_for('file.browse_view', rel=rel) }}">Avbryt</a>
+    </div>
+  </div>
+
+  {% if file_ext == '.html' %}
+  {# ── Quill rich text editor ── #}
+  <input type="hidden" name="content" id="quill-hidden">
+  <div id="quill-editor"></div>
+
+  {% elif file_ext == '.md' %}
+  <div class="md-tabs">
+    <button type="button" class="tab-btn active" id="tab-write" onclick="switchMdTab('write')">Skriv</button>
+    <button type="button" class="tab-btn" id="tab-preview" onclick="switchMdTab('preview')">Förhandsgranska</button>
+  </div>
+
+  <div class="md-editor-container">
+    <!-- Skrivläge -->
+    <div id="pane-write" class="md-pane">
+      <div class="md-toolbar" id="md-toolbar">
+        <button type="button" onclick="wrapMd('**','**','fetstil')"         title="Fetstil (Ctrl+B)"><b>B</b></button>
+        <button type="button" onclick="wrapMd('*','*','kursiv')"            title="Kursiv (Ctrl+I)"><i>I</i></button>
+        <button type="button" onclick="wrapMd('~~','~~','genomstrykning')"  title="Genomstrykning"><s>S</s></button>
+        <div class="sep"></div>
+        <button type="button" onclick="prefixMd('# ')"   title="Rubrik 1">H1</button>
+        <button type="button" onclick="prefixMd('## ')"  title="Rubrik 2">H2</button>
+        <button type="button" onclick="prefixMd('### ')" title="Rubrik 3">H3</button>
+        <div class="sep"></div>
+        <button type="button" onclick="prefixMd('- ')"   title="Punktlista">&#8226; Lista</button>
+        <button type="button" onclick="prefixMd('1. ')"  title="Numrerad lista">1. Lista</button>
+        <button type="button" onclick="prefixMd('> ')"   title="Citat">&rsaquo; Citat</button>
+        <div class="sep"></div>
+        <button type="button" onclick="wrapMd('\`','\`','kod')"             title="Infogad kod">`kod`</button>
+        <button type="button" onclick="wrapMd('\`\`\`\n','\n\`\`\`','kod här')" title="Kodblock">```block```</button>
+        <div class="sep"></div>
+        <button type="button" onclick="insertLink()"        title="Länk">&#128279; Länk</button>
+        <button type="button" onclick="insertMd('\n---\n')" title="Horisontell linje">&#8212; Linje</button>
+      </div>
+      <textarea name="content" id="md-source" spellcheck="true">{{ content }}</textarea>
+    </div>
+
+    <!-- Förhandsgranskning -->
+    <div id="pane-preview" class="md-pane" style="display:none;">
+      <div class="md-preview" id="md-preview"></div>
+    </div>
+  </div>
+
+  {% else %}
+  {# ── Plain / code textarea ── #}
+  <textarea name="content" spellcheck="false" autocomplete="off" autocorrect="off">{{ content }}</textarea>
+  {% endif %}
+</form>
+
+{% if file_ext == '.html' %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+  var Font = Quill.import('formats/font');
+  Font.whitelist = ['serif', 'monospace', 'arial', 'times', 'georgia'];
+  Quill.register(Font, true);
+
+  var quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ font: ['', 'serif', 'monospace', 'arial', 'times', 'georgia'] }],
+        [{ header: [1, 2, 3, 4, false] }],
+        [{ size: ['small', false, 'large', 'huge'] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ color: [] }, { background: [] }],
+        [{ align: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ indent: '-1' }, { indent: '+1' }],
+        ['blockquote', 'code-block'],
+        ['link', 'clean']
+      ]
+    }
+  });
+
+  quill.clipboard.dangerouslyPasteHTML({{ content | tojson }});
+
+  function saveQuill() {
+    document.getElementById('quill-hidden').value = quill.root.innerHTML;
+    document.getElementById('edit-form').submit();
+  }
+
+  document.getElementById('edit-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveQuill();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveQuill();
+    }
+  });
+</script>
+
+{% elif file_ext == '.md' %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  const src = document.getElementById('md-source');
+  const preview = document.getElementById('md-preview');
+
+  function update() { preview.innerHTML = marked.parse(src.value); }
+  src.addEventListener('input', update);
+  update();
+
+  function switchMdTab(mode) {
+    const tabWrite = document.getElementById('tab-write');
+    const tabPreview = document.getElementById('tab-preview');
+    const paneWrite = document.getElementById('pane-write');
+    const panePreview = document.getElementById('pane-preview');
+
+    if (mode === 'write') {
+      tabWrite.classList.add('active');
+      tabPreview.classList.remove('active');
+      paneWrite.style.display = 'flex';
+      panePreview.style.display = 'none';
+      src.focus();
+    } else {
+      tabWrite.classList.remove('active');
+      tabPreview.classList.add('active');
+      paneWrite.style.display = 'none';
+      panePreview.style.display = 'block';
+      update();
+    }
+  }
+
+  // Wrap selection (or insert placeholder) with before/after markers
+  function wrapMd(before, after, placeholder) {
+    const s = src.selectionStart, e = src.selectionEnd;
+    const sel = src.value.slice(s, e);
+    const insert = before + (sel || placeholder) + after;
+    src.setRangeText(insert, s, e);
+    if (sel) {
+      src.selectionStart = s;
+      src.selectionEnd = s + insert.length;
+    } else {
+      src.selectionStart = s + before.length;
+      src.selectionEnd = s + before.length + placeholder.length;
+    }
+    src.focus();
+    update();
+  }
+
+  // Insert prefix at start of current line
+  function prefixMd(prefix) {
+    const s = src.selectionStart;
+    const lineStart = src.value.lastIndexOf('\n', s - 1) + 1;
+    // Toggle: remove prefix if already present, otherwise add
+    const existing = src.value.slice(lineStart, lineStart + prefix.length);
+    if (existing === prefix) {
+      src.setRangeText('', lineStart, lineStart + prefix.length);
+      src.selectionStart = src.selectionEnd = s - prefix.length;
+    } else {
+      src.setRangeText(prefix, lineStart, lineStart);
+      src.selectionStart = src.selectionEnd = s + prefix.length;
+    }
+    src.focus();
+    update();
+  }
+
+  // Insert raw text at cursor
+  function insertMd(text) {
+    const s = src.selectionStart;
+    src.setRangeText(text, s, s);
+    src.selectionStart = src.selectionEnd = s + text.length;
+    src.focus();
+    update();
+  }
+
+  // Insert link with optional selected text as label
+  function insertLink() {
+    const s = src.selectionStart, e = src.selectionEnd;
+    const sel = src.value.slice(s, e) || 'länktext';
+    const url = 'https://';
+    src.setRangeText('[' + sel + '](' + url + ')', s, e);
+    src.selectionStart = s + sel.length + 3;
+    src.selectionEnd = s + sel.length + 3 + url.length;
+    src.focus();
+    update();
+  }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 's') { e.preventDefault(); document.getElementById('edit-form').submit(); }
+      if (e.key === 'b') { e.preventDefault(); wrapMd('**','**','fetstil'); }
+      if (e.key === 'i') { e.preventDefault(); wrapMd('*','*','kursiv'); }
+    }
+  });
+</script>
+
+{% else %}
+<script>
+  const ta = document.querySelector('textarea');
+
+  ta.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = this.selectionStart, en = this.selectionEnd;
+      this.value = this.value.slice(0, s) + '  ' + this.value.slice(en);
+      this.selectionStart = this.selectionEnd = s + 2;
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      document.getElementById('edit-form').submit();
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

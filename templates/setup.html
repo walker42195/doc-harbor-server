@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}doc-harbor - Setup{% endblock %}
+{% block content %}
+<div style="max-width: 450px; margin: 4rem auto; background: var(--surface); padding: 2rem; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+  <h2 style="margin-bottom: 1.5rem; color: var(--accent); font-weight: 600; text-align: center;">Konfigurera doc-harbor</h2>
+  <p style="margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;">
+    Välkommen till doc-harbor! Detta är första uppstarten. Vänligen ange ett lösenord för administratörskontot (<strong>admin</strong>). Detta lösenord kommer att sparas krypterat i databasen.
+  </p>
+  {% if error %}
+    <div style="background: #ffebe9; color: #cf222e; border: 1px solid rgba(207,34,46,0.15); padding: 0.75rem; border-radius: 6px; margin-bottom: 1.5rem; font-size: 0.85rem;">
+      {{ error }}
+    </div>
+  {% endif %}
+  <form method="POST">
+    <div style="margin-bottom: 1.25rem;">
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;" for="password">Lösenord för admin</label>
+      <input style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem;" type="password" id="password" name="password" required placeholder="Skriv in adminlösenord">
+    </div>
+    <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.6rem;" type="submit">Spara och logga in</button>
+  </form>
+</div>
+{% endblock %}
