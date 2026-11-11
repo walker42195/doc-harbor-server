@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime
 from flask import request, abort, url_for
 
-from config import ROOT, MAX_VERSIONS, TEXT_EXTENSIONS, IMAGE_EXTENSIONS
+from config import ROOT, DB_PATH, MAX_VERSIONS, TEXT_EXTENSIONS, IMAGE_EXTENSIONS
 
 
 # ── Formatting helpers ───────────────────────────────────────────────────────
@@ -95,9 +95,13 @@ def safe_path(rel: str) -> Path:
     root_resolved = ROOT.resolve()
     path = (ROOT / rel).resolve()
     try:
-        path.relative_to(root_resolved)
+        inside = path.relative_to(root_resolved)
     except ValueError:
         abort(403)
+    # Databasen (.doc-harbor.db med -wal/-journal), dess säkerhetskopior och
+    # backupens tempmapp får aldrig läsas eller skrivas via fil-API:t, inte ens av admin.
+    if any(part.startswith(".doc-harbor") for part in inside.parts) or path == DB_PATH.resolve():
+        abort(404)
 
     username = getattr(request, "username", None)
     user_role = getattr(request, "user_role", None)

@@ -1,5 +1,6 @@
 import os
 import secrets
+from datetime import timedelta
 from flask import Flask, request as flask_request
 from config import APP_VERSION, registration_enabled
 from db import init_db
@@ -14,7 +15,16 @@ def create_app():
             "Sätt SECRET_KEY i .env (t.ex. openssl rand -hex 32)."
         )
     # SameSite=Lax: webbläsaren skickar inte inloggningskakan med formulär från andra sajter (CSRF).
-    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+    # Inloggningen i webben gäller i 90 dagar (session.permanent), så att man inte
+    # behöver ange lösenord och kod varje gång.
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(days=90),
+        # Sätt SESSION_COOKIE_SECURE=true när tjänsten nås via HTTPS (rekommenderas).
+        SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "false").strip().lower()
+        in ("1", "true", "yes", "on"),
+    )
 
     from helpers import fmt_size, fmt_time, _markdown_render
     app.jinja_env.globals["fmt_size"] = fmt_size
@@ -24,9 +34,14 @@ def create_app():
     @app.context_processor
     def inject_globals():
         import update_check
+        security_warnings = []
+        if getattr(flask_request, "user_role", None) == "admin" and flask_request.username:
+            from auth import admin_security_warnings
+            security_warnings = admin_security_warnings(flask_request.username)
         return {
             "app_version": APP_VERSION,
             "registration_enabled": registration_enabled(),
+            "security_warnings": security_warnings,
             **update_check.status(),
         }
 
@@ -82,6 +97,11 @@ def create_app():
     app.register_blueprint(todo_bp)
     app.register_blueprint(kanban_bp)
     app.register_blueprint(backup_bp)
+
+    from config import ROOT, DB_PATH
+    from db import check_storage_writable
+    for problem in check_storage_writable(ROOT, DB_PATH):
+        app.logger.error(problem)
 
     init_db()
     from auth import sync_admin_password_from_env

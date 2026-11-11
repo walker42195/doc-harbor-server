@@ -1,9 +1,7 @@
 import secrets
-import smtplib
-from email.message import EmailMessage
 from datetime import datetime
 from flask import Blueprint, abort, render_template, request, redirect, url_for, session
-from auth import hash_password, is_safe_username
+from auth import hash_password, is_safe_username, is_weak_password
 from db import get_db
 from config import ROOT, registration_enabled
 
@@ -16,28 +14,20 @@ def _registration_gate():
     if not registration_enabled():
         abort(404)
 
-import os
-
-SMTP_HOST = os.environ.get("SMTP_HOST", "localhost")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "25"))
-FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@localhost")
 CODE_TTL = 900  # 15 minutes
 MAX_CODE_ATTEMPTS = 5
 _wrong_codes: dict[str, int] = {}
 
 
 def _send_verification_email(to_email: str, code: str):
-    msg = EmailMessage()
-    msg["Subject"] = "Verifiera din e-post — doc-harbor"
-    msg["From"] = FROM_EMAIL
-    msg["To"] = to_email
-    msg.set_content(
+    from mailer import send_mail
+    send_mail(
+        to_email,
+        "Verifiera din e-post — doc-harbor",
         f"Din verifieringskod för doc-harbor är: {code}\n\n"
         f"Koden är giltig i 15 minuter.\n\n"
-        f"Om du inte begärde ett konto, ignorera detta meddelande."
+        f"Om du inte begärde ett konto, ignorera detta meddelande.",
     )
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as s:
-        s.send_message(msg)
 
 
 @bp.route("/register", methods=["GET", "POST"])
@@ -125,9 +115,11 @@ def verify_view():
                     user_dir = (ROOT / "Users" / email).resolve()
                     user_dir.relative_to(ROOT / "Users")
                     
+                    # E-postadressen är redan verifierad → kodkrav vid inloggning från start.
                     conn.execute(
-                        "INSERT INTO users (username, password_hash, salt, role) VALUES (?, ?, ?, ?)",
-                        (email, p_hash, salt, "read-write"),
+                        "INSERT INTO users (username, password_hash, salt, role, email, mfa_email, pw_weak) "
+                        "VALUES (?, ?, ?, ?, ?, 1, ?)",
+                        (email, p_hash, salt, "read-write", email, 1 if is_weak_password(password) else 0),
                     )
                     conn.execute("DELETE FROM email_verifications WHERE email = ?", (email,))
                     conn.commit()
@@ -138,6 +130,7 @@ def verify_view():
                     session.permanent = True
                     session["username"] = email
                     session["role"] = "read-write"
+                    session["mfa"] = True
                     return redirect(url_for("file.browse_view", rel=f"Users/{email}"))
                 except Exception:
                     conn.close()

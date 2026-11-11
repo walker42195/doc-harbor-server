@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import secrets
 import functools
+import logging
 import threading
 import time
 from collections import defaultdict, deque
@@ -11,49 +12,61 @@ from flask import request, redirect, url_for, Response, session
 from db import get_db
 
 
-from pathlib import Path
+MIN_STRONG_PASSWORD = 12
+
+
+def is_weak_password(password: str) -> bool:
+    return len(password or "") < MIN_STRONG_PASSWORD
 
 
 def sync_admin_password_from_env():
+    """Skapar admin från ADMIN_PASSWORD, eller återställer lösenordet när värdet ändras.
+
+    Tidigare återställdes lösenordet vid varje nytt bygge, vilket skrev över ett
+    lösenord som admin själv hade bytt till. Nu sparas en saltad hash av
+    ADMIN_PASSWORD och lösenordet återställs bara om admin saknas eller om
+    värdet i ADMIN_PASSWORD har ändrats sedan förra gången. Ändrat värde
+    stänger också av kodkravet för admin (återställning om admin låst ute sig).
+    """
     admin_pw = os.environ.get("ADMIN_PASSWORD", "").strip()
     if not admin_pw:
         return
 
-    build_time_file = Path("/app/.build_time")
-    current_build = build_time_file.read_text().strip() if build_time_file.exists() else "dev"
-
     conn = get_db()
-    cursor = conn.execute("SELECT id FROM users WHERE username = 'admin'")
-    admin_user = cursor.fetchone()
+    admin_user = conn.execute("SELECT id FROM users WHERE username = 'admin'").fetchone()
+    row = conn.execute(
+        "SELECT value FROM system_settings WHERE key = 'admin_env_password'"
+    ).fetchone()
+    env_unchanged = False
+    if row and ":" in row["value"]:
+        salt, digest = row["value"].split(":", 1)
+        env_unchanged = verify_password(admin_pw, digest, salt)
 
-    last_build_row = conn.execute("SELECT value FROM system_settings WHERE key = 'last_admin_reset_build'").fetchone()
-    last_build = last_build_row["value"] if last_build_row else None
+    if admin_user and env_unchanged:
+        conn.close()
+        return
 
-    # Reset on initial setup (no admin), or when container image was rebuilt
-    is_new_build = (current_build != "dev" and current_build != last_build)
-
-    if not admin_user:
-        pw_hash, salt = hash_password(admin_pw)
+    pw_hash, salt = hash_password(admin_pw)
+    if admin_user:
+        # Ett nytt ADMIN_PASSWORD är också vägen in om admin har låst ute sig
+        # (t.ex. fel e-postadress med kodkrav), därför stängs kodkravet av här.
         conn.execute(
-            "INSERT INTO users (username, password_hash, salt, role) VALUES ('admin', ?, ?, 'admin')",
+            "UPDATE users SET password_hash = ?, salt = ?, role = 'admin', pw_weak = 1, mfa_email = 0 WHERE username = 'admin'",
             (pw_hash, salt),
         )
+    else:
         conn.execute(
-            "INSERT INTO system_settings (key, value) VALUES ('last_admin_reset_build', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (current_build,),
-        )
-        conn.commit()
-    elif is_new_build:
-        pw_hash, salt = hash_password(admin_pw)
-        conn.execute(
-            "UPDATE users SET password_hash = ?, salt = ?, role = 'admin' WHERE username = 'admin'",
+            "INSERT INTO users (username, password_hash, salt, role, pw_weak) VALUES ('admin', ?, ?, 'admin', 1)",
             (pw_hash, salt),
         )
-        conn.execute(
-            "INSERT INTO system_settings (key, value) VALUES ('last_admin_reset_build', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (current_build,),
-        )
-        conn.commit()
+    env_hash, env_salt = hash_password(admin_pw)
+    conn.execute(
+        "INSERT INTO system_settings (key, value) VALUES ('admin_env_password', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (f"{env_salt}:{env_hash}",),
+    )
+    conn.execute("DELETE FROM system_settings WHERE key = 'last_admin_reset_build'")
+    conn.commit()
     conn.close()
 
 
@@ -132,14 +145,24 @@ def check_auth(username: str, password: str):
     return False, None
 
 
-def create_token(username: str) -> str:
+def requires_mfa(username: str) -> bool:
+    """True om kontot kräver kod via e-post vid inloggning."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT mfa_email, email FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    conn.close()
+    return bool(row and row["mfa_email"] and row["email"])
+
+
+def create_token(username: str, mfa: bool = False) -> str:
     token = secrets.token_hex(32)
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     now = datetime.now().timestamp()
     conn = get_db()
     conn.execute(
-        "INSERT INTO tokens (token_hash, username, created_at, last_used) VALUES (?, ?, ?, ?)",
-        (token_hash, username, now, now),
+        "INSERT INTO tokens (token_hash, username, created_at, last_used, mfa) VALUES (?, ?, ?, ?, ?)",
+        (token_hash, username, now, now, 1 if mfa else 0),
     )
     conn.commit()
     conn.close()
@@ -147,13 +170,20 @@ def create_token(username: str) -> str:
 
 
 def verify_token(token: str):
+    """Returnerar (användarnamn, roll) för ett giltigt token, annars (None, None).
+
+    Ett token som utfärdades utan kodverifiering gäller inte för ett konto som
+    kräver kod (t.ex. om kodkravet slogs på efteråt).
+    """
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     conn = get_db()
-    cursor = conn.execute(
-        "SELECT t.username, u.role FROM tokens t JOIN users u ON t.username = u.username WHERE t.token_hash = ?",
+    row = conn.execute(
+        "SELECT t.username, t.mfa, u.role, u.mfa_email, u.email FROM tokens t "
+        "JOIN users u ON t.username = u.username WHERE t.token_hash = ?",
         (token_hash,),
-    )
-    row = cursor.fetchone()
+    ).fetchone()
+    if row and row["mfa_email"] and row["email"] and not row["mfa"]:
+        row = None
     if row:
         conn.execute(
             "UPDATE tokens SET last_used = ? WHERE token_hash = ?",
@@ -162,6 +192,162 @@ def verify_token(token: str):
         conn.commit()
     conn.close()
     return (row["username"], row["role"]) if row else (None, None)
+
+
+# ── Inloggningskod via e-post ────────────────────────────────────────────────
+LOGIN_CODE_TTL = 10 * 60      # koden gäller i 10 minuter
+LOGIN_CODE_RESEND = 60        # ny kod tidigast efter 60 s
+LOGIN_CODE_MAX_ATTEMPTS = 5   # sedan måste inloggningen börja om
+
+
+class LoginCodeError(Exception):
+    """Fel i kodsteget. restart=True betyder att inloggningen måste börja om med lösenordet."""
+
+    def __init__(self, message: str, restart: bool = False):
+        super().__init__(message)
+        self.restart = restart
+
+
+def _sha(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _send_login_code(email: str, code: str) -> None:
+    from mailer import send_mail
+    send_mail(
+        email,
+        f"Din inloggningskod: {code} — doc-harbor",
+        f"Din inloggningskod för doc-harbor är: {code}\n\n"
+        f"Koden gäller i {LOGIN_CODE_TTL // 60} minuter.\n\n"
+        f"Om det inte var du som loggade in: byt lösenord direkt, "
+        f"eftersom någon känner till ditt lösenord.",
+    )
+
+
+def start_login_challenge(username: str) -> tuple[str, str]:
+    """Skapar en inloggningskod, mejlar den och returnerar (challenge, maskad e-post).
+
+    Anropas först när lösenordet är kontrollerat. Kastar LoginCodeError om
+    mejlet inte kan skickas.
+    """
+    from mailer import mask_email
+    conn = get_db()
+    row = conn.execute("SELECT email FROM users WHERE username = ?", (username,)).fetchone()
+    if not row or not row["email"]:
+        conn.close()
+        raise LoginCodeError("Kontot saknar e-postadress.")
+    email = row["email"]
+    now = time.time()
+    challenge = secrets.token_urlsafe(32)
+    code = str(secrets.randbelow(10 ** 6)).zfill(6)
+    conn.execute("DELETE FROM login_codes WHERE expires_at < ?", (now,))
+    conn.execute(
+        "INSERT INTO login_codes (challenge_hash, username, code_hash, created_at, expires_at, last_sent) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (_sha(challenge), username, _sha(challenge + code), now, now + LOGIN_CODE_TTL, now),
+    )
+    conn.commit()
+    conn.close()
+    try:
+        _send_login_code(email, code)
+    except Exception as e:
+        logging.error("Kunde inte skicka inloggningskod till %s: %s", username, e)
+        raise LoginCodeError("Kunde inte skicka koden via e-post. Försök igen senare.")
+    return challenge, mask_email(email)
+
+
+def resend_login_code(challenge: str) -> str:
+    """Skickar en ny kod för samma inloggningsförsök. Returnerar maskad e-post."""
+    from mailer import mask_email
+    now = time.time()
+    conn = get_db()
+    row = conn.execute(
+        "SELECT lc.id, lc.last_sent, lc.expires_at, u.email FROM login_codes lc "
+        "JOIN users u ON u.username = lc.username WHERE lc.challenge_hash = ?",
+        (_sha(challenge),),
+    ).fetchone()
+    if not row or row["expires_at"] < now:
+        conn.close()
+        raise LoginCodeError("Inloggningen har gått ut. Logga in igen.", restart=True)
+    if now - row["last_sent"] < LOGIN_CODE_RESEND:
+        conn.close()
+        raise LoginCodeError("Vänta en minut innan du begär en ny kod.")
+    code = str(secrets.randbelow(10 ** 6)).zfill(6)
+    conn.execute(
+        "UPDATE login_codes SET code_hash = ?, last_sent = ?, expires_at = ?, attempts = 0 WHERE id = ?",
+        (_sha(challenge + code), now, now + LOGIN_CODE_TTL, row["id"]),
+    )
+    conn.commit()
+    conn.close()
+    try:
+        _send_login_code(row["email"], code)
+    except Exception as e:
+        logging.error("Kunde inte skicka ny inloggningskod: %s", e)
+        raise LoginCodeError("Kunde inte skicka koden via e-post. Försök igen senare.")
+    return mask_email(row["email"])
+
+
+def verify_login_code(challenge: str, code: str) -> tuple[str, str]:
+    """Kontrollerar koden. Returnerar (användarnamn, roll) eller kastar LoginCodeError."""
+    now = time.time()
+    code = (code or "").strip().replace(" ", "")
+    conn = get_db()
+    row = conn.execute(
+        "SELECT lc.id, lc.username, lc.code_hash, lc.expires_at, lc.attempts, u.role FROM login_codes lc "
+        "JOIN users u ON u.username = lc.username WHERE lc.challenge_hash = ?",
+        (_sha(challenge or ""),),
+    ).fetchone()
+    if not row:
+        conn.close()
+        raise LoginCodeError("Inloggningen har gått ut. Logga in igen.", restart=True)
+    if login_blocked(row["username"]):
+        conn.close()
+        raise LoginCodeError("För många misslyckade försök. Vänta en stund och försök igen.")
+    if row["expires_at"] < now:
+        conn.execute("DELETE FROM login_codes WHERE id = ?", (row["id"],))
+        conn.commit()
+        conn.close()
+        raise LoginCodeError("Koden har gått ut. Logga in igen.", restart=True)
+    if not hmac.compare_digest(_sha(challenge + code), row["code_hash"]):
+        _record_failure(row["username"])
+        attempts = row["attempts"] + 1
+        if attempts >= LOGIN_CODE_MAX_ATTEMPTS:
+            conn.execute("DELETE FROM login_codes WHERE id = ?", (row["id"],))
+            conn.commit()
+            conn.close()
+            raise LoginCodeError("För många felaktiga koder. Logga in igen.", restart=True)
+        conn.execute("UPDATE login_codes SET attempts = ? WHERE id = ?", (attempts, row["id"]))
+        conn.commit()
+        conn.close()
+        raise LoginCodeError("Felaktig kod.")
+    conn.execute("DELETE FROM login_codes WHERE id = ?", (row["id"],))
+    conn.commit()
+    conn.close()
+    return row["username"], row["role"]
+
+
+def admin_security_warnings(username: str) -> list[str]:
+    """Rekommendationer som visas för en inloggad admin om det egna kontot."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT email, mfa_email, pw_weak FROM users WHERE username = ? AND role = 'admin'",
+        (username,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return []
+    warnings = []
+    if not row["email"]:
+        warnings.append(
+            "Lägg till en e-postadress på ditt admin-konto, så att du kan slå på kodverifiering via e-post."
+        )
+    elif not row["mfa_email"]:
+        warnings.append("Slå på kodverifiering via e-post för ditt admin-konto.")
+    if row["pw_weak"]:
+        warnings.append(
+            f"Byt admin-lösenordet till ett säkert lösenord (minst {MIN_STRONG_PASSWORD} tecken)."
+        )
+    return warnings
 
 
 def is_setup_needed() -> bool:
@@ -190,9 +376,13 @@ def requires_auth(f):
             # gäller direkt, inte först vid nästa inloggning.
             conn = get_db()
             row = conn.execute(
-                "SELECT role FROM users WHERE username = ?", (session["username"],)
+                "SELECT role, mfa_email, email FROM users WHERE username = ?", (session["username"],)
             ).fetchone()
             conn.close()
+            # En session utan kodverifiering gäller inte för ett konto som kräver kod
+            # (t.ex. om kodkravet slogs på efter inloggningen).
+            if row and row["mfa_email"] and row["email"] and not session.get("mfa"):
+                row = None
             if row:
                 session["role"] = row["role"]
                 request.username = session["username"]
@@ -208,6 +398,10 @@ def requires_auth(f):
                 # Set cookie/session for subsequent web requests (like WebView form POSTs)
                 session["username"] = username
                 session["role"] = role
+                # verify_token har redan kontrollerat kodkravet: för ett konto med kodkrav
+                # är tokenet kodverifierat. Utan kodkrav sätts False, så att sessionen
+                # slutar gälla om kodkravet slås på senare.
+                session["mfa"] = requires_mfa(username)
                 request.username = username
                 request.user_role = role
                 return f(*args, **kwargs)
@@ -220,6 +414,12 @@ def requires_auth(f):
         auth = request.authorization
         if auth:
             authenticated, role = check_auth(auth.username, auth.password)
+            if authenticated and requires_mfa(auth.username):
+                # Basic Auth skickar bara lösenordet – det skulle gå förbi kodkravet.
+                return Response(
+                    "Kontot kräver kodverifiering via e-post. Logga in i appen eller webben.",
+                    401,
+                )
             if authenticated:
                 request.username = auth.username
                 request.user_role = role

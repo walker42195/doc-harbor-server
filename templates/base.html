@@ -120,6 +120,7 @@
     footer a:hover { color: var(--accent); }
     .update-banner { background: var(--accent-bg, rgba(9,105,218,.12)); border-bottom: 1px solid var(--border, #30363d); color: var(--text, inherit); font-size: 0.85rem; padding: 0.5rem 1.25rem; text-align: center; }
     .update-banner a { color: #58a6ff; margin-left: 0.5rem; }
+    .security-banner { background: rgba(210,153,34,.15); }
 
     /* ── Theme & High Contrast Buttons ── */
     .theme-btn {
@@ -233,6 +234,13 @@
   <div class="update-banner" role="status">
     ⬆️ doc-harbor {{ latest_version }} finns (du kör {{ app_version }}).
     {% if latest_url %}<a href="{{ latest_url }}" target="_blank" rel="noopener">Se vad som är nytt</a>{% endif %}
+  </div>
+  {% endif %}
+  {% if security_warnings %}
+  <div class="update-banner security-banner" role="status">
+    🔒 Rekommendation:
+    {% for w in security_warnings %}{{ w }}{% if not loop.last %} · {% endif %}{% endfor %}
+    <a href="/users">Öppna användarinställningar</a>
   </div>
   {% endif %}
   <main>

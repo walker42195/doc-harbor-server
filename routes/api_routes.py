@@ -150,9 +150,13 @@ def api_users():
     if request.user_role != "admin":
         return jsonify({"error": "Forbidden: Admin access required"}), 403
     conn = get_db()
-    rows = conn.execute("SELECT username, role FROM users ORDER BY username").fetchall()
+    rows = conn.execute(
+        "SELECT username, role, email, mfa_email FROM users ORDER BY username"
+    ).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([
+        {**dict(r), "mfa_email": bool(r["mfa_email"])} for r in rows
+    ])
 
 
 @bp.route("/api/users/<username>/groups")

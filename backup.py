@@ -44,7 +44,9 @@ FULL_DB_NAME = "database/doc-harbor.db"
 PARTS = ("files", "todo", "kanban")
 PART_LABELS = {"files": "Filer", "todo": "Att-göra-listor", "kanban": "Kanban-tavlor"}
 
-TMP_DIR = ROOT / ".doc-harbor-backup-tmp"
+# Tempmapp för export/import. Bör ligga på samma filsystem/mount som ROOT och
+# DB_PATH (filerna flyttas med os.replace). Produktionen: TMP_DIR=/data/tmp.
+TMP_DIR = Path(os.environ.get("TMP_DIR", str(ROOT / ".doc-harbor-backup-tmp"))).resolve()
 HOME_RESERVED = {"Todos", "Kanban"}
 ROOT_EXCLUDE = {"Users", "Groups"}
 NAME_RE = re.compile(r"[^a-zA-Z0-9_@.+-]")

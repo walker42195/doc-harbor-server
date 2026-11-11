@@ -1,9 +1,14 @@
+import re
 import sqlite3
 from flask import Blueprint, render_template, request, redirect, url_for
-from auth import requires_auth, hash_password, is_safe_username
+from auth import requires_auth, hash_password, is_safe_username, is_weak_password
 from db import get_db
 
 bp = Blueprint("user", __name__)
+
+
+def _valid_email(email: str) -> bool:
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email))
 
 
 @bp.route("/users")
@@ -15,7 +20,7 @@ def users_view():
 
     conn = get_db()
     users = [dict(r) for r in conn.execute(
-        "SELECT username, role FROM users ORDER BY username ASC"
+        "SELECT username, role, email, mfa_email, pw_weak FROM users ORDER BY username ASC"
     ).fetchall()]
     conn.close()
 
@@ -37,16 +42,29 @@ def create_user():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
     role = request.form.get("role", "read-only").strip()
+    email = request.form.get("email", "").strip().lower()
+    if not email and "@" in username:
+        email = username.lower()
+    # Kodkrav är standard när kontot har en e-postadress. Formuläret skickar
+    # mfa_email=0/1; äldre klienter (appen) skickar inget och får standardvärdet.
+    if "mfa_form" in request.form:  # webbformuläret: okryssad ruta skickas inte alls
+        mfa = request.form.get("mfa_email") in ("1", "on", "true")
+    else:
+        mfa = request.form.get("mfa_email", "1" if email else "0") in ("1", "on", "true")
 
     if not username or not is_safe_username(username) or not password or role not in ("admin", "read-write", "read-only"):
         return redirect(url_for("user.users_view", error="Ogiltigt användarnamn eller ogiltiga värden"))
+    if email and not _valid_email(email):
+        return redirect(url_for("user.users_view", error="Ogiltig e-postadress"))
+    if mfa and not email:
+        return redirect(url_for("user.users_view", error="Kodverifiering kräver en e-postadress"))
 
     p_hash, salt = hash_password(password)
     try:
         conn = get_db()
         conn.execute(
-            "INSERT INTO users (username, password_hash, salt, role) VALUES (?, ?, ?, ?)",
-            (username, p_hash, salt, role),
+            "INSERT INTO users (username, password_hash, salt, role, email, mfa_email, pw_weak) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (username, p_hash, salt, role, email or None, 1 if mfa else 0, 1 if is_weak_password(password) else 0),
         )
         conn.commit()
         conn.close()
@@ -72,6 +90,9 @@ def delete_user():
 
     conn = get_db()
     conn.execute("DELETE FROM users WHERE username = ?", (username,))
+    conn.execute("DELETE FROM tokens WHERE username = ?", (username,))
+    conn.execute("DELETE FROM group_members WHERE username = ?", (username,))
+    conn.execute("DELETE FROM login_codes WHERE username = ?", (username,))
     conn.commit()
     conn.close()
     return redirect(url_for("user.users_view", success=f"Användare '{username}' borttagen"))
@@ -98,8 +119,8 @@ def change_password():
     p_hash, salt = hash_password(password)
     conn = get_db()
     conn.execute(
-        "UPDATE users SET password_hash = ?, salt = ? WHERE username = ?",
-        (p_hash, salt, username),
+        "UPDATE users SET password_hash = ?, salt = ?, pw_weak = ? WHERE username = ?",
+        (p_hash, salt, 1 if is_weak_password(password) else 0, username),
     )
     conn.commit()
     conn.close()
@@ -130,3 +151,42 @@ def update_user_role():
     conn.commit()
     conn.close()
     return redirect(url_for("user.users_view", success=f"Rollen för '{username}' har ändrats till '{role}'"))
+
+
+@bp.route("/users/update-security", methods=["POST"])
+@requires_auth
+def update_user_security():
+    """Admin: e-postadress och kodkrav (kod via e-post vid inloggning) per konto."""
+    if request.user_role != "admin":
+        from flask import abort
+        abort(403)
+
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    mfa = request.form.get("mfa_email", "0") in ("1", "on", "true")
+
+    if email and not _valid_email(email):
+        return redirect(url_for("user.users_view", error="Ogiltig e-postadress"))
+    if mfa and not email:
+        return redirect(url_for("user.users_view", error=f"'{username}' behöver en e-postadress för kodverifiering"))
+
+    conn = get_db()
+    row = conn.execute("SELECT mfa_email FROM users WHERE username = ?", (username,)).fetchone()
+    if not row:
+        conn.close()
+        return redirect(url_for("user.users_view", error="Användaren finns inte"))
+    conn.execute(
+        "UPDATE users SET email = ?, mfa_email = ? WHERE username = ?",
+        (email or None, 1 if mfa else 0, username),
+    )
+    conn.commit()
+    conn.close()
+
+    # Slår admin på kodkrav för sitt eget konto gäller den nuvarande sessionen fortfarande:
+    # admin har redan loggat in och ska inte kastas ut mitt i inställningen.
+    if mfa and username == request.username:
+        from flask import session
+        session["mfa"] = True
+
+    state = "på" if mfa else "av"
+    return redirect(url_for("user.users_view", success=f"'{username}': kodverifiering via e-post är {state}"))

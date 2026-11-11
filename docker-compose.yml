@@ -5,6 +5,9 @@ services:
   doc-harbor:
     image: ghcr.io/walker42195/doc-harbor-server:latest
     # Vill du bygga själv från källkoden: byt "image:" mot "build: ."
+    # Kör som en vanlig användare (uid/gid 10001), aldrig som root.
+    # Mappen ./data måste ägas av den: mkdir -p data && sudo chown 10001:10001 data
+    user: "10001:10001"
     ports:
       - "8090:8080"
     volumes:
@@ -16,4 +19,12 @@ services:
     # Behövs bara om e-postservern körs på samma maskin (SMTP_HOST=host.docker.internal).
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Härdning: skrivskyddat filsystem utom ./data och /tmp, inga extra rättigheter.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

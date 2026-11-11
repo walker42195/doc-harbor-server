@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ange kod — doc-harbor</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 360px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .logo svg { display: block; margin: 0 auto 0.75rem; }
+    .logo h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #58a6ff;
+      letter-spacing: -0.01em;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #8b949e;
+      margin-bottom: 0.35rem;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: #58a6ff;
+    }
+    .field { margin-bottom: 1rem; }
+    .btn {
+      width: 100%;
+      padding: 0.6rem;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #2ea043; }
+    .info {
+      background: #12261e;
+      border: 1px solid #2ea043;
+      border-radius: 6px;
+      color: #3fb950;
+      font-size: 0.85rem;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+    }
+    .subtitle { text-align: center; font-size: 0.85rem; color: #8b949e; margin-bottom: 1.25rem; line-height: 1.4; }
+    input.code { letter-spacing: 0.3em; font-size: 1.2rem; text-align: center; }
+    .link-btn {
+      background: none; border: none; color: #58a6ff; cursor: pointer;
+      font-size: 0.85rem; padding: 0; margin: 0;
+    }
+    .link-btn:hover { text-decoration: underline; }
+    .footer { text-align: center; margin-top: 1rem; font-size: 0.85rem; color: #8b949e; }
+    .footer a { color: #58a6ff; text-decoration: none; }
+    .error {
+      background: #3d1c1c;
+      border: 1px solid #f85149;
+      border-radius: 6px;
+      color: #f85149;
+      font-size: 0.85rem;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='anchor_login.png') }}" alt="doc-harbor logo" style="width: 96px; height: 96px; display: block; margin: 0 auto 0.75rem; border-radius: 50%;">
+      <h1>doc-harbor</h1>
+    </div>
+    <p class="subtitle">Vi har skickat en 6-siffrig kod till<br><strong>{{ email }}</strong></p>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    {% if info %}
+      <div class="info">{{ info }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login/verify">
+      <div class="field">
+        <label for="code">Kod från e-posten</label>
+        <input class="code" type="text" id="code" name="code" required autofocus
+               maxlength="6" pattern="[0-9]{6}" placeholder="123456"
+               inputmode="numeric" autocomplete="one-time-code">
+      </div>
+      <button type="submit" class="btn">Logga in</button>
+    </form>
+    <div class="footer">
+      <form method="POST" action="/login/resend" style="display:inline;">
+        <button type="submit" class="link-btn">Skicka en ny kod</button>
+      </form>
+      &nbsp;·&nbsp; <a href="/logout">Avbryt</a>
+    </div>
+  </div>
+</body>
+</html>

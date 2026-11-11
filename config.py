@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "2.3.11"
+APP_VERSION = "2.3.13"
 
 ROOT = Path(os.environ.get("PROJECTS_ROOT", "/projects")).resolve()
 DB_PATH = Path(os.environ.get("DB_PATH", "/projects/.doc-harbor.db")).resolve()

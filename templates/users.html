@@ -18,11 +18,13 @@
       </div>
     {% endif %}
 
+    <div style="overflow-x: auto;">
     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
       <thead>
         <tr style="border-bottom: 2px solid var(--border); font-weight: 600;">
           <th style="padding: 0.5rem;">Användarnamn</th>
           <th style="padding: 0.5rem;">Behörighet</th>
+          <th style="padding: 0.5rem;">E-post och kod vid inloggning</th>
           <th style="padding: 0.5rem; text-align: right;">Handlingar</th>
         </tr>
       </thead>
@@ -55,6 +57,17 @@
                 </form>
               {% endif %}
             </td>
+            <td style="padding: 0.75rem 0.5rem;">
+              <form action="/users/update-security" method="POST" style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                <input type="hidden" name="username" value="{{ u.username }}">
+                <input type="email" name="email" value="{{ u.email or '' }}" placeholder="e-postadress" aria-label="E-post för {{ u.username }}"
+                       style="min-width: 11rem; padding: 0.2rem 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: var(--surface); color: var(--text);">
+                <label style="font-size: 0.8rem; display: inline-flex; gap: 0.25rem; align-items: center; white-space: nowrap;" title="Kräv en kod via e-post vid inloggning">
+                  <input type="checkbox" name="mfa_email" value="1" {% if u.mfa_email %}checked{% endif %}> Kräv kod
+                </label>
+                <button class="btn" type="submit" style="padding: 0.15rem 0.5rem; font-size: 0.75rem;">Spara</button>
+              </form>
+            </td>
             <td style="padding: 0.75rem 0.5rem; text-align: right;">
               {% if u.username != request.username %}
                 <form action="/users/delete" method="POST" style="display: inline;" onsubmit='return confirm({{ ("Är du säker på att du vill ta bort användaren " ~ u.username ~ "?")|tojson }});'>
@@ -67,6 +80,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     
     <div style="margin-top: 1.5rem;">
       <a class="btn" href="/">Tillbaka till filer</a>
@@ -88,6 +102,17 @@
           <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="new_password">Lösenord</label>
           <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="password" id="new_password" name="password" required placeholder="Lösenord">
         </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="new_email">E-post</label>
+          <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="email" id="new_email" name="email" placeholder="namn@exempel.se">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <input type="hidden" name="mfa_form" value="1">
+          <label style="font-size: 0.85rem; display: inline-flex; gap: 0.4rem; align-items: center;">
+            <input type="checkbox" name="mfa_email" value="1" checked> Kräv kod via e-post vid inloggning
+          </label>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Kräver en e-postadress. Stäng av för tjänstekonton som använder Basic Auth (t.ex. AI).</div>
+        </div>
         <div style="margin-bottom: 1.25rem;">
           <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="new_role">Behörighet</label>
           <select style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--surface);" id="new_role" name="role" required>
@@ -106,7 +131,8 @@
       <form action="/users/change-password" method="POST">
         <div style="margin-bottom: 1.25rem;">
           <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;" for="current_user_password">Nytt lösenord</label>
-          <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="password" id="current_user_password" name="password" required placeholder="Skriv in nytt lösenord">
+          <input style="width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" type="password" id="current_user_password" name="password" required minlength="8" placeholder="Skriv in nytt lösenord">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Använd minst 12 tecken, gärna en lösenfras.</div>
         </div>
         <button class="btn" style="width: 100%; justify-content: center; padding: 0.5rem; border-color: var(--accent); color: var(--accent);" type="submit">Uppdatera lösenord</button>
       </form>

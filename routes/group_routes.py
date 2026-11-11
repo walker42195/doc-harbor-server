@@ -102,25 +102,14 @@ def create_group():
 
 
 def _send_invite_email(to_email: str, group_name: str, inviter_name: str):
-    import os
-    import smtplib
-    from email.message import EmailMessage
-
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    from_email = os.environ.get("FROM_EMAIL", "noreply@localhost")
-
-    msg = EmailMessage()
-    msg["Subject"] = f"Du har lagts till i gruppen '{group_name}' — doc-harbor"
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg.set_content(
+    from mailer import send_mail
+    send_mail(
+        to_email,
+        f"Du har lagts till i gruppen '{group_name}' — doc-harbor",
         f"Hej!\n\n"
         f"Användaren {inviter_name} har lagt till dig i gruppen '{group_name}' på doc-harbor.\n\n"
-        f"Du kan nu komma åt gruppens delade filer under avdelningen 'Grupper' i appen eller webbgränssnittet."
+        f"Du kan nu komma åt gruppens delade filer under avdelningen 'Grupper' i appen eller webbgränssnittet.",
     )
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
-        s.send_message(msg)
 
 
 @bp.route("/groups/<group_id>/invite", methods=["POST"])
