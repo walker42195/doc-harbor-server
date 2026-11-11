@@ -4,7 +4,7 @@
 <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
   
   <!-- Användarlista -->
-  <div style="flex: 2; min-width: 300px; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+  <div style="flex: 1 1 100%; min-width: 0; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
     <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text);">Registrerade användare</h3>
     
     {% if success %}
@@ -68,8 +68,19 @@
                 <button class="btn" type="submit" style="padding: 0.15rem 0.5rem; font-size: 0.75rem;">Spara</button>
               </form>
             </td>
-            <td style="padding: 0.75rem 0.5rem; text-align: right;">
+            <td style="padding: 0.75rem 0.5rem; text-align: right; white-space: nowrap;">
               {% if u.username != request.username %}
+                <details style="display: inline-block; text-align: left; margin-right: 0.35rem;">
+                  <summary class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; list-style: none; cursor: pointer;">Återställ lösenord</summary>
+                  <form action="/users/change-password" method="POST" style="display: flex; gap: 0.35rem; margin-top: 0.4rem;"
+                        onsubmit='return confirm({{ ("Återställa lösenordet för " ~ u.username ~ "? Kontot loggas ut på alla enheter.")|tojson }});'>
+                    <input type="hidden" name="username" value="{{ u.username }}">
+                    <input type="password" name="password" required minlength="8" placeholder="Nytt lösenord" aria-label="Nytt lösenord för {{ u.username }}"
+                           autocomplete="new-password"
+                           style="width: 9rem; padding: 0.2rem 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: var(--surface); color: var(--text);">
+                    <button class="btn" type="submit" style="padding: 0.15rem 0.5rem; font-size: 0.75rem;">Spara</button>
+                  </form>
+                </details>
                 <form action="/users/delete" method="POST" style="display: inline;" onsubmit='return confirm({{ ("Är du säker på att du vill ta bort användaren " ~ u.username ~ "?")|tojson }});'>
                   <input type="hidden" name="username" value="{{ u.username }}">
                   <button class="btn" style="color: #cf222e; border-color: rgba(207,34,46,0.15); padding: 0.2rem 0.5rem; font-size: 0.75rem;" type="submit">Ta bort</button>
@@ -88,10 +99,10 @@
   </div>
 
   <!-- Skapa Användare & Ändra Lösenord -->
-  <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 1.5rem;">
+  <div style="flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start;">
     
     <!-- Skapa ny användare -->
-    <div style="background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+    <div style="flex: 1 1 280px; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
       <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text);">Skapa ny användare</h3>
       <form action="/users/create" method="POST">
         <div style="margin-bottom: 1rem;">
@@ -126,7 +137,7 @@
     </div>
 
     <!-- Ändra eget lösenord -->
-    <div style="background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+    <div style="flex: 1 1 280px; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
       <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; color: var(--text);">Ändra ditt lösenord</h3>
       <form action="/users/change-password" method="POST">
         <div style="margin-bottom: 1.25rem;">

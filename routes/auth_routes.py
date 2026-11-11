@@ -1,7 +1,7 @@
 import hashlib
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, Response
 from auth import (
-    requires_auth, check_auth, create_token, verify_token, is_setup_needed, login_blocked,
+    requires_auth, auth_epoch, check_auth, create_token, verify_token, is_setup_needed, login_blocked,
     requires_mfa, start_login_challenge, resend_login_code, verify_login_code, LoginCodeError,
 )
 from db import get_db
@@ -22,6 +22,7 @@ def _finish_web_login(username: str, role: str, mfa: bool, next_url: str):
     session["username"] = username
     session["role"] = role
     session["mfa"] = mfa
+    session["epoch"] = auth_epoch(username)
     return redirect(_safe_next(next_url))
 
 

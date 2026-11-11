@@ -65,6 +65,8 @@ Under **💾 Backup** i webbappen kan varje användare exportera sina filer, att
 
 Admin kan under **⚙️ Användare** kräva en kod via e-post vid inloggning, per konto. Kontot behöver en e-postadress, och servern behöver en fungerande e-postserver (`SMTP_HOST`). Konton som registrerar sig själva får kodkravet från start. Konton med kodkrav kan inte använda Basic Auth i API:t – appen och webben loggar in med kod och kommer sedan ihåg inloggningen. För skript och tjänstekonton: skapa ett eget konto utan kodkrav och med så lite behörighet som möjligt.
 
+Admin kan också ändra e-postadressen och återställa lösenordet för varje konto. En återställning loggar ut kontot på alla enheter (appar och webben).
+
 Admin-kontot skapas utan e-post. Tills du har lagt till en e-postadress, slagit på kodkravet och valt ett lösenord på minst 12 tecken visar webbappen en rekommendation om det.
 
 ## Inställningar (`.env`)

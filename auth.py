@@ -155,6 +155,23 @@ def requires_mfa(username: str) -> bool:
     return bool(row and row["mfa_email"] and row["email"])
 
 
+def auth_epoch(username: str) -> int:
+    conn = get_db()
+    row = conn.execute("SELECT auth_epoch FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return row["auth_epoch"] if row else 0
+
+
+def revoke_logins(username: str) -> None:
+    """Loggar ut kontot överallt: appar (tokens), väntande koder och webbsessioner."""
+    conn = get_db()
+    conn.execute("DELETE FROM tokens WHERE username = ?", (username,))
+    conn.execute("DELETE FROM login_codes WHERE username = ?", (username,))
+    conn.execute("UPDATE users SET auth_epoch = auth_epoch + 1 WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+
 def create_token(username: str, mfa: bool = False) -> str:
     token = secrets.token_hex(32)
     token_hash = hashlib.sha256(token.encode()).hexdigest()
@@ -376,12 +393,15 @@ def requires_auth(f):
             # gäller direkt, inte först vid nästa inloggning.
             conn = get_db()
             row = conn.execute(
-                "SELECT role, mfa_email, email FROM users WHERE username = ?", (session["username"],)
+                "SELECT role, mfa_email, email, auth_epoch FROM users WHERE username = ?", (session["username"],)
             ).fetchone()
             conn.close()
             # En session utan kodverifiering gäller inte för ett konto som kräver kod
             # (t.ex. om kodkravet slogs på efter inloggningen).
             if row and row["mfa_email"] and row["email"] and not session.get("mfa"):
+                row = None
+            # Lösenordet har återställts av admin efter inloggningen.
+            if row and row["auth_epoch"] != session.get("epoch", 0):
                 row = None
             if row:
                 session["role"] = row["role"]
@@ -402,6 +422,7 @@ def requires_auth(f):
                 # är tokenet kodverifierat. Utan kodkrav sätts False, så att sessionen
                 # slutar gälla om kodkravet slås på senare.
                 session["mfa"] = requires_mfa(username)
+                session["epoch"] = auth_epoch(username)
                 request.username = username
                 request.user_role = role
                 return f(*args, **kwargs)

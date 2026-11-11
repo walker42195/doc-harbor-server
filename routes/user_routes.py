@@ -1,7 +1,7 @@
 import re
 import sqlite3
 from flask import Blueprint, render_template, request, redirect, url_for
-from auth import requires_auth, hash_password, is_safe_username, is_weak_password
+from auth import requires_auth, hash_password, is_safe_username, is_weak_password, revoke_logins
 from db import get_db
 
 bp = Blueprint("user", __name__)
@@ -116,16 +116,32 @@ def change_password():
             from flask import abort
             abort(400)
 
+    if len(password) < 8:
+        if request.user_role == "admin":
+            return redirect(url_for("user.users_view", error="Lösenordet måste vara minst 8 tecken"))
+        from flask import abort
+        abort(400)
+
     p_hash, salt = hash_password(password)
     conn = get_db()
-    conn.execute(
+    cur = conn.execute(
         "UPDATE users SET password_hash = ?, salt = ?, pw_weak = ? WHERE username = ?",
         (p_hash, salt, 1 if is_weak_password(password) else 0, username),
     )
     conn.commit()
     conn.close()
+    if cur.rowcount == 0:
+        return redirect(url_for("user.users_view", error="Användaren finns inte"))
 
     if request.user_role == "admin":
+        if username != request.username:
+            # Återställning av någon annans lösenord: kontot loggas ut överallt
+            # (appar och webben) och måste logga in med det nya lösenordet.
+            revoke_logins(username)
+            return redirect(url_for(
+                "user.users_view",
+                success=f"Lösenordet för '{username}' har återställts. Kontot är utloggat på alla enheter.",
+            ))
         return redirect(url_for("user.users_view", success=f"Lösenordet för '{username}' har uppdaterats"))
     return redirect(url_for("file.index"))
 

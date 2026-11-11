@@ -82,6 +82,9 @@ def init_db():
     _add_column(conn, "users", "mfa_email", "INTEGER NOT NULL DEFAULT 0")
     # 1 = lösenordet är för svagt eller satt från ADMIN_PASSWORD → rekommendation visas
     _add_column(conn, "users", "pw_weak", "INTEGER NOT NULL DEFAULT 0")
+    # Ökas när admin återställer lösenordet: inloggningar (webbsessioner) med
+    # ett äldre värde slutar gälla.
+    _add_column(conn, "users", "auth_epoch", "INTEGER NOT NULL DEFAULT 0")
     # 1 = token utfärdat efter kodverifiering (krävs för konton med kodkrav)
     _add_column(conn, "tokens", "mfa", "INTEGER NOT NULL DEFAULT 0")
     conn.commit()
